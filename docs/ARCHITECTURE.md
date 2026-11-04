@@ -1017,3 +1017,20 @@ Linux reads standard `/sys/class/hwmon` temperature inputs through its platform
 module. `cargo run -p g13-daemon --bin temperature_probe` reports the exact source
 inventory and selected CPU/GPU readings, without opening a Logitech HID handle.
 See [TEMPERATURES.md](TEMPERATURES.md) for setup and available sensor categories.
+
+
+AIDA64 support: `platform/windows/aida64.rs` reads the documented
+`AIDA64_SensorValues` mapping with FILE_MAP_READ, bounds copying via VirtualQuery,
+and parses sibling XML temperature records. It recognizes ANSI and UTF-16,
+rejects malformed/unavailable values, and checks producer presence so other
+consumers cannot keep stale data visible after AIDA64 exits. AIDA64 takes
+precedence over the helper; NVIDIA remains a fallback when AIDA64 shares no GPU
+core reading. Pure parser tests and an actual temporary Windows mapping fixture
+cover classification, units, termination and read access. Fixed sensor limits
+and temperature-resolution metadata are filtered across all providers.
+
+The approved development-PC setup uses the official Libre Hardware Monitor
+0.9.6 library and its digitally signed PawnIO driver. CPU Tctl/Tdie and GPU core
+readings were verified through the same probe used by the LCD. Repeated bridge
+writes use a valid `.previous` backup path because PowerShell 5.1 converts a null
+string argument to an empty path when calling File.Replace.

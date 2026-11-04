@@ -19,7 +19,9 @@ struct Hardware { identifier: String, name: String }
 
 impl Provider for WindowsTemperatures {
     fn read(&mut self) -> Vec<Reading> {
-        let mut readings = bridge_readings();
+        let mut readings = super::aida64::read();
+        let aida_gpu = crate::platform::temperatures::primary(&readings, Kind::Gpu).is_some();
+        if readings.is_empty() { readings = bridge_readings(); }
         for namespace in ["ROOT\\LibreHardwareMonitor", "ROOT\\OpenHardwareMonitor"] {
             if !readings.is_empty() { break; }
             let Ok(connection) = WMIConnection::with_namespace_path(namespace) else { continue };
@@ -39,7 +41,7 @@ impl Provider for WindowsTemperatures {
             if !readings.is_empty() { break; }
         }
         if self.nvml.is_none() { self.nvml = Nvml::open(); }
-        if let Some(nvml) = &self.nvml {
+        if let Some(nvml) = &self.nvml && !aida_gpu {
             let direct = nvml.read();
             // The helper and NVML may both report the same GPU core. Keep the
             // direct reading and retain distinct hotspot/memory/iGPU sensors.

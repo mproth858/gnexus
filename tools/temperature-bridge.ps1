@@ -53,7 +53,9 @@ try {
         $bridgeJson = ConvertTo-Json -InputObject $bridgeSnapshot -Depth 8
         $bridgeTemporary = $bridgeDestination + '.tmp'
         [IO.File]::WriteAllText($bridgeTemporary, $bridgeJson, $bridgeEncoding)
-        if ([IO.File]::Exists($bridgeDestination)) { [IO.File]::Replace($bridgeTemporary, $bridgeDestination, $null) }
+        # Windows PowerShell 5.1 coerces a null string argument to an empty path.
+        # Give Replace a real backup path so repeated publication stays atomic.
+        if ([IO.File]::Exists($bridgeDestination)) { [IO.File]::Replace($bridgeTemporary, $bridgeDestination, $bridgeDestination + '.previous') }
         else { [IO.File]::Move($bridgeTemporary, $bridgeDestination) }
         if (!$Once) { Start-Sleep -Seconds 2 }
     } while (!$Once)

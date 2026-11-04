@@ -22,3 +22,4 @@ pub fn raise_priority() {
 }
 
 pub mod temperatures;
+mod aida64;

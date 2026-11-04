@@ -8,6 +8,25 @@ NVIDIA GPU core temperature is read directly from the installed NVIDIA driver.
 On the development PC, the RTX 4000 Ada was verified at approximately 59–60 C.
 CPU temperature was not exposed by stock Windows, so it requires a provider.
 
+## AIDA64 on your main PC
+
+In AIDA64, open **File → Preferences → Hardware Monitoring → External
+Applications**. Enable **shared memory**, then select the CPU package/control,
+GPU and other temperature sensors you want to share. Keep AIDA64 running.
+G Nexus reads `AIDA64_SensorValues` automatically; it does not need the Libre
+Hardware Monitor helper or another sensor driver on that PC.
+
+Only temperature elements are read. Fan RPM, voltage and other values are
+ignored. CPU package/control is preferred; GPU hotspot and memory stay distinct.
+Legacy ANSI and UTF-16 shared-memory formats are supported. The reader opens
+memory read-only, bounds its access to the mapped region, and drops readings
+when AIDA64 is no longer running. A real Windows mapping fixture tests the
+reader without requiring AIDA64 or changing its configuration.
+
+AIDA64 sensor sharing documents Celsius values and English sensor names,
+independent of the temperature unit/language selected inside AIDA64:
+[AIDA64 external applications](https://www.aida64.com/user-manual/hardware-monitoring/external-applications?language_content_entity=en).
+
 ## Windows CPU and other sensors
 
 Existing Libre/Open Hardware Monitor installations that publish WMI work
@@ -21,7 +40,7 @@ For modern [Libre Hardware Monitor 0.9.6](https://github.com/LibreHardwareMonito
 3. Run the read-only bridge using Windows PowerShell 5.1 as administrator:
 
 ```powershell
-.\tools\temperature-bridge.ps1 -LibraryPath "C:\path\to\LibreHardwareMonitorLib.dll" -OutputPath "$env:APPDATA\g13d\config\temperatures.json"
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tools\temperature-bridge.ps1 -LibraryPath "C:\path\to\LibreHardwareMonitorLib.dll" -OutputPath "$env:APPDATA\g13d\config\temperatures.json"
 ```
 
 Pass the actual normal user's output path if the administrator account differs.
@@ -44,7 +63,8 @@ The exact choices depend on sensors exposed by the hardware/provider:
 - Memory module temperatures where supported.
 - Liquid cooler/coolant and PSU temperatures on supported monitoring devices.
 
-Only reported temperature sensors are listed. A disconnected or unsupported
+Only live temperature measurements are listed. Fixed warning/critical limits,
+sensor resolution and distance-to-limit metadata are excluded. A disconnected or unsupported
 sensor is not replaced with an invented value. An unlabeled motherboard sensor
 retains the provider's label; do not assume it identifies a particular component.
 

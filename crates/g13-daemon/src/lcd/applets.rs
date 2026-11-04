@@ -324,9 +324,18 @@ impl Temperatures {
         let extra: Vec<_> = ctx.temperatures.iter().filter(|r| r.valid() && Some(r.id.as_str()) != cpu.map(|r| r.id.as_str()) && Some(r.id.as_str()) != gpu.map(|r| r.id.as_str()))
             .map(|r| {
                 let label = match r.kind {
+                    Kind::Cpu if r.name.starts_with("CPU") => r.name.clone(),
                     Kind::Cpu => format!("CPU {}", r.name),
-                    Kind::Gpu => format!("GPU {}", r.name.strip_prefix("GPU ").unwrap_or(&r.name)),
-                    Kind::Other => format!("{} {}", r.hardware, r.name),
+                    Kind::Gpu if r.hardware.contains("Radeon(TM) Graphics") => format!("iGPU {}", r.name.strip_prefix("GPU ").unwrap_or(&r.name)),
+                    Kind::Gpu if r.name.starts_with("GPU") || r.name.starts_with("iGPU") => r.name.clone(),
+                    Kind::Gpu => format!("GPU {}", r.name),
+                    Kind::Other => {
+                        if let Some(index) = r.id.split_once("/nvme/").and_then(|(_, rest)| rest.split('/').next()).and_then(|index| index.parse::<u32>().ok()) {
+                            format!("SSD {} {}", index.saturating_add(1), r.name.replace("Composite Temperature", "Composite").replace("Temperature #", "Sensor #"))
+                        } else if r.name.starts_with("DIMM") { format!("RAM {}", r.name) }
+                        else if r.name == "CPU" { "Board CPU".into() }
+                        else { r.name.clone() }
+                    }
                 };
                 (label, Some(r.celsius))
             }).collect();
