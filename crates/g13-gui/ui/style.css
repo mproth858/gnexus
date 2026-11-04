@@ -815,3 +815,23 @@ html.overlay .modal { width: 92vw; }
 .hidden-input { position: fixed; left: -100px; top: -100px; opacity: 0; }
 .num-input { width: 80px; height: 32px; padding: 0 8px; border-radius: 8px; border: 1.5px solid var(--line-dim); background: var(--bg); color: var(--text); font: 15px var(--font); }
 .backup-last { font-size: 13px; margin-right: auto; }
+/* G915 */
+html.overlay body.keyboard-mode .ov-profiles { display: none; }
+.keyboard-page { display: none; padding: 32px; overflow: auto; flex: 1; }
+body.keyboard-mode .keyboard-page { display: block; }
+body.keyboard-mode .stage, body.keyboard-mode #scope-bar, body.keyboard-mode .bottom,
+body.keyboard-mode .profile-row, body.keyboard-mode .mouse-page, body.keyboard-mode .headset-page { display: none !important; }
+.keyboard-page fieldset { border: 1px solid #394151; border-radius: 12px; padding: 24px; }
+.keyboard-page label { display: inline-flex; align-items: center; gap: 10px; margin: 12px 20px 12px 0; }
+.keyboard-page h1 { margin: 0; font-size: 32px; }
+.kb-heading { display: flex; align-items: baseline; gap: 24px; }
+.keyboard-page p, #kb-feedback { color: #aab3c3; }
+.kb-banks { display: flex; gap: 8px; margin: 24px 0 12px; }
+.kb-banks button, .kb-gkey { padding: 14px 24px; border: 1px solid #394151; border-radius: 8px; background: var(--panel-2); color: var(--text); font: inherit; cursor: pointer; }
+.kb-banks .on, .kb-gkey.held { border-color: #5c91ff; background: #243858; }
+.kb-keys { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; margin: 24px 0; }
+.kb-gkey { display: flex; min-height: 100px; flex-direction: column; gap: 14px; text-align: left; }
+.kb-gkey span { font-size: 12px; overflow-wrap: anywhere; }
+.kb-actions { display: flex; align-items: center; gap: 16px; margin-top: 24px; }
+#kb-feedback { margin-right: auto; }
+#kb-macros summary { cursor: pointer; padding: 16px 0; font-size: 20px; }

@@ -149,7 +149,8 @@ pub fn find_mice(api: &HidApi) -> Vec<Mouse> {
             let mut link = Link { dev, index, timeout: PROBE_TIMEOUT, sw_id: logi_hidpp::SW_ID, events: RefCell::default() };
             let is_mouse = link.call(0, 1, &[0, 0, 0x5A]).is_ok_and(|d| d[0] >= 2) && {
                 link.timeout = TIMEOUT;
-                link.feature(f::ONBOARD_PROFILES).is_some()
+                // Gaming keyboards also expose onboard profiles (e.g. G915).
+                link.feature(f::ONBOARD_PROFILES).is_some() && link.feature(f::ADJUSTABLE_DPI).is_some()
             };
             if is_mouse {
                 let name = link.name().unwrap_or_else(|| "souris".into());

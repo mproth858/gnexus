@@ -10,11 +10,13 @@
 
 /** Show the G13 ("g13"), the mouse ("mouse") or the headset ("headset"). */
 function showDevice(dev) {
+  document.body.classList.toggle("keyboard-mode", dev === "keyboard");
   document.body.classList.toggle("mouse-mode", dev === "mouse");
   document.body.classList.toggle("headset-mode", dev === "headset");
   $$(".dev-tabs button").forEach((b) => b.classList.toggle("on", b.dataset.dev === dev));
   if (dev === "mouse") Mouse.render();
   if (dev === "headset") Headset.render();
+  if (dev === "keyboard") Keyboard.render();
   if (typeof OVERLAY !== "undefined" && OVERLAY) renderOverlayHead();
 }
 

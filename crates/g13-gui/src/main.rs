@@ -57,6 +57,7 @@ struct Status {
     mouse: Option<MouseStatus>,
     /// Last known state of the headset (PRO X Wireless…).
     headset: Option<HeadsetStatus>,
+    keyboard: Option<g13_daemon::keyboard::KeyboardStatus>,
 }
 
 /// Event pushed to the front-end (`g13` channel).
@@ -79,6 +80,7 @@ enum Ev {
     Mouse { status: Box<MouseStatus> },
     /// New state of the headset.
     Headset { status: Box<HeadsetStatus> },
+    Keyboard { status: Box<g13_daemon::keyboard::KeyboardStatus> },
 }
 
 struct AppState {
@@ -131,6 +133,16 @@ fn get_status(state: State<AppState>) -> Status {
 #[tauri::command]
 fn get_mouse(state: State<AppState>) -> Option<MouseStatus> {
     state.status.lock().unwrap().mouse.clone()
+}
+
+#[tauri::command]
+fn apply_keyboard(state: State<AppState>, settings: g13_daemon::keyboard::KeyboardSettings) -> Result<(), String> {
+    settings.validate()?;
+    if !state.status.lock().unwrap().keyboard.as_ref().is_some_and(|k| k.connected) {
+        return Err("G915 is not connected".into());
+    }
+    state.runtime.lock().unwrap().as_ref().ok_or("Engine stopped")?
+        .keyboard(g13_daemon::keyboard::KeyboardCommand::Apply(Box::new(settings)))
 }
 
 /// Write these settings into the mouse's active onboard profile. The result
@@ -1186,6 +1198,10 @@ fn forward_events(app: AppHandle, rx: std::sync::mpsc::Receiver<UiEvent>, status
                             s.headset = Some((*st).clone());
                             Some(Ev::Headset { status: st })
                         }
+                        UiEvent::Keyboard(st) => {
+                            s.keyboard = Some((*st).clone());
+                            Some(Ev::Keyboard { status: st })
+                        }
                         UiEvent::OverlayToggle | UiEvent::LcdButton { .. } | UiEvent::ProfileChanged(_) => None,
                     }
                 };
@@ -1413,6 +1429,7 @@ fn main() {
             pick_exe,
             gamepad_status,
             get_mouse,
+            apply_keyboard,
             get_headset,
             set_headset_sidetone,
             set_headset_sleep,

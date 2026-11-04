@@ -150,6 +150,12 @@ function renderProfileMenu() {
 
 /** Overlay head for the device shown: the G13's (renderOverlayBar) or the mouse's. */
 function renderOverlayHead() {
+  if (document.body.classList.contains("keyboard-mode")) {
+    $("#ov-name").textContent = "G915";
+    $("#ov-game-text").textContent = Keyboard.status?.transport || "Not connected";
+    $("#ov-assign").classList.add("hidden");
+    return;
+  }
   if (document.body.classList.contains("headset-mode")) {
     const st = Headset.status;
     $("#ov-name").textContent = st?.present ? st.name : t("Casque non détecté");
@@ -178,7 +184,7 @@ function renderOverlayHead() {
 
 /** Overlay: profile shortcuts (top right) and the game line. */
 function renderOverlayBar(cur) {
-  if (document.body.classList.contains("mouse-mode") || document.body.classList.contains("headset-mode")) return renderOverlayHead();
+  if (document.body.classList.contains("mouse-mode") || document.body.classList.contains("headset-mode") || document.body.classList.contains("keyboard-mode")) return renderOverlayHead();
   $("#ov-profiles").innerHTML = S.profiles.map((p, i) =>
     `<button class="bank prof ${p.id === S.editId ? "on" : ""}" data-id="${esc(p.id)}" title="${esc(`${i + 1}. ${p.name}`)}">
       ${i + 1}${p.id === S.activeId ? '<i class="act"></i>' : ""}</button>`).join("");
@@ -1219,6 +1225,7 @@ async function boot() {
   $("#color-wheel").addEventListener("click", openBankColor);
   Mouse.init();
   Headset.init();
+  Keyboard.init();
   $("#bright").addEventListener("input", (e) => {
     if (!S.base[S.bank]) S.base[S.bank] = { rgb: "#FFFFFF", bright: 100 };
     S.base[S.bank].bright = +e.target.value;
@@ -1244,6 +1251,7 @@ async function boot() {
       case "gamepad_error": toast(t("Manette virtuelle : {m}", { m: ev.message }), true); break;
       case "mouse": Mouse.update(ev.status); break;
       case "headset": Headset.update(ev.status); break;
+      case "keyboard": Keyboard.update(ev.status); break;
     }
   });
 
@@ -1253,6 +1261,7 @@ async function boot() {
   }).catch(() => {});
 
   S.status = await invoke("get_status");
+  Keyboard.update(S.status.keyboard);
   S.connected = S.status.connected;
   S.activeId = S.status.active_profile;
   S.bank = S.status.bank || "M1";

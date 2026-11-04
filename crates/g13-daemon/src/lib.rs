@@ -18,6 +18,7 @@ pub mod headset;
 pub mod keycode;
 pub mod lcd;
 pub mod mouse;
+pub mod keyboard;
 pub mod platform;
 pub mod profiles;
 pub mod recording;

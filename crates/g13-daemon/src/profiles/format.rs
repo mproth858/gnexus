@@ -62,7 +62,7 @@ pub struct ProfileDoc {
 
 /// The file as written on disk, before validation. Also the JSON model the
 /// GUI edits (same field names), so both share [`from_dto`] validation.
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct FileDto {
     pub name: String,
@@ -81,7 +81,7 @@ pub struct FileDto {
     pub macros: IndexMap<String, MacroDto>,
 }
 
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct BanksDto {
     #[serde(rename = "M1", default)]
@@ -110,7 +110,7 @@ impl BanksDto {
     }
 }
 
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 pub struct BankDto {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub color: Option<String>,
@@ -119,7 +119,7 @@ pub struct BankDto {
     pub keys: IndexMap<String, ActionDto>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(untagged, deny_unknown_fields)]
 pub enum ActionDto {
     Chord(String),
@@ -168,7 +168,7 @@ pub enum ModeDto {
     Toggle,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct StickDto {
     #[serde(default)]

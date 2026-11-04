@@ -1460,18 +1460,18 @@ fn save_soft(l: Option<&Lighting>) {
 
 /// Is G HUB running? Only its processes that talk to devices count (its
 /// updater service runs all the time and never touches them).
-struct GhubWatch {
+pub(crate) struct GhubWatch {
     sys: sysinfo::System,
 }
 
 impl GhubWatch {
-    fn new() -> Self {
+    pub(crate) fn new() -> Self {
         Self {
             sys: sysinfo::System::new(),
         }
     }
 
-    fn running(&mut self) -> bool {
+    pub(crate) fn running(&mut self) -> bool {
         self.sys
             .refresh_processes(sysinfo::ProcessesToUpdate::All, true);
         self.sys.processes().values().any(|p| {

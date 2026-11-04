@@ -77,6 +77,7 @@ pub struct Runtime {
     hid: Option<JoinHandle<()>>,
     mouse: Option<(Sender<MouseCommand>, JoinHandle<()>)>,
     headset: Option<(Sender<HeadsetCommand>, JoinHandle<()>)>,
+    keyboard: Option<(Sender<crate::keyboard::KeyboardCommand>, JoinHandle<()>)>,
 }
 
 impl Runtime {
@@ -162,6 +163,14 @@ impl Runtime {
         } else {
             None
         };
+        let (keyboard_tx, keyboard_rx) = channel();
+        let to_engine = req_tx.clone();
+        let keyboard = match crate::keyboard::spawn(keyboard_rx, move |st| {
+            let _ = to_engine.send(Request::Emit(UiEvent::Keyboard(Box::new(st))));
+        }, shutdown.clone(), injector.clone(), profiles_dir.as_ref().and_then(|p| p.parent()).map(Path::to_path_buf)) {
+            Ok(h) => Some((keyboard_tx, h)),
+            Err(e) => { log::error!("could not start G915 thread: {e}"); None }
+        };
         let engine_shutdown = shutdown.clone();
         let engine_thread = thread::Builder::new()
             .name("g13-engine".into())
@@ -192,7 +201,7 @@ impl Runtime {
             .map_err(|e| format!("could not start engine thread: {e}"))?;
 
         Ok((
-            Self { shutdown, recent, requests: req_tx, profiles_dir, engine: Some(engine_thread), hid: Some(hid), mouse, headset },
+            Self { shutdown, recent, requests: req_tx, profiles_dir, engine: Some(engine_thread), hid: Some(hid), mouse, headset, keyboard },
             ui,
         ))
     }
@@ -225,6 +234,10 @@ impl Runtime {
         }
     }
 
+    pub fn keyboard(&self, cmd: crate::keyboard::KeyboardCommand) -> Result<(), String> {
+        self.keyboard.as_ref().ok_or("G915 worker is not running")?.0.send(cmd).map_err(|e| e.to_string())
+    }
+
     /// Flag that stops everything when set (e.g. from a Ctrl+C handler).
     pub fn shutdown_flag(&self) -> Arc<AtomicBool> {
         self.shutdown.clone()
@@ -251,6 +264,7 @@ impl Runtime {
         if let Some((_, h)) = self.headset.take() {
             let _ = h.join();
         }
+        if let Some((_, h)) = self.keyboard.take() { let _ = h.join(); }
         platform::shutdown();
     }
 }

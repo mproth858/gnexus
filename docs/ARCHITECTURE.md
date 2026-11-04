@@ -857,3 +857,18 @@ Constats matériels :
 5. **IPC** (seulement si l'on veut une UI séparée de `g13d`, par ex. service système Linux) :
    JSON-RPC sur Named Pipe / socket Unix ; G13 Studio embarque aujourd'hui le runtime directement.
 6. **Portage Linux** : remplir `platform/linux/*`, service systemd utilisateur.
+
+## Ajout G915 dans ce fork
+
+Le module `g13-daemon/src/keyboard.rs` possède son propre fil HID et son propre
+`Engine` : aucune liaison ni banque du G13 n'est modifiée. Découverte HID++ par
+nom et capacités, puis commandes `KeyboardCommand::Apply` et événements
+`UiEvent::Keyboard`. Les profils embarqués seuls ne suffisent plus à classer un
+appareil comme souris : il doit aussi annoncer le réglage DPI.
+
+La page `ui/keyboard.js` réutilise le sélecteur d'actions et `MacroEditor`.
+La configuration `g915.json` est sauvegardée avec les autres appareils.
+Les contrôles sont explicites, bloqués pendant que G HUB pilote l'appareil ;
+déconnexion, modification et arrêt relâchent les touches et arrêtent les macros.
+Voir [G915.md](G915.md) pour les fonctionnalités, limites et validations par
+transport. USB et Bluetooth restent à valider sur le matériel.

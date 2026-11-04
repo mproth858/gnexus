@@ -1,5 +1,10 @@
 # G Nexus
 
+This fork adds initial **G915** support for Windows: static lighting, brightness,
+and G1–G5 remapping/macros across three banks. LIGHTSPEED discovery has been
+verified on hardware; control changes and USB/Bluetooth still need hardware
+validation. See [G915 support and Windows development](docs/G915.md).
+
 *[Version française](README.fr.md)*
 
 G Nexus replaces Logitech Gaming Software and G HUB for three Logitech devices, on **Windows** and **Linux**:

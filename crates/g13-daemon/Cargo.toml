@@ -23,6 +23,10 @@ path = "src/bin/headset_lab.rs"
 name = "hidpp-lab"
 path = "src/bin/hidpp_lab.rs"
 
+[[bin]]
+name = "g915-probe"
+path = "src/bin/g915_probe.rs"
+
 [dependencies]
 g13-core = { workspace = true }
 logi-hidpp = { workspace = true }

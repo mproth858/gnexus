@@ -41,8 +41,16 @@
       gshift: [{ mouse: "Left" }, { mouse: "Right" }, "LeftCtrl+T", { mouse: "Back" }, null, { mouse: "Forward" }, "LeftCtrl+LeftShift+Tab",
         "LeftCtrl+Tab", "LeftCtrl+0", "LeftCtrl+Z", "LeftCtrl+X", null, null, null, null, null] },
   };
+  let keyboard = { connected: true, name: "G915", transport: "LIGHTSPEED", voltage_mv: 3998,
+    lighting_supported: true, brightness_supported: true, gkeys_supported: true, bank: "M1", held: 0, revision: 0,
+    settings: { enabled: false, color: null, brightness: null,
+      profile: { name: "G915", banks: { M1: {}, M2: {}, M3: {} }, macros: {} } } };
   const commands = {
-    get_status: () => ({ connected: !location.hash.includes("offline"), bank: "M1", active_profile: "demo", recording: false, display_on: true, dry_run: true, error: null }),
+    apply_keyboard: ({ settings }) => {
+      keyboard = { ...keyboard, settings: structuredClone(settings), message: "G915 settings saved", revision: keyboard.revision + 1 };
+      setTimeout(() => emit({ type: "keyboard", status: keyboard }), 50);
+    },
+    get_status: () => ({ keyboard, connected: !location.hash.includes("offline"), bank: "M1", active_profile: "demo", recording: false, display_on: true, dry_run: true, error: null }),
     list_profiles: () => Object.entries(profiles).map(([id, p], i) => ({ id, number: i + 1, name: p.name, default: !!p.default, apps: p.rules.map((r) => r.exe || r.title), error: null })),
     set_preview: () => {},
     set_pinned: () => {},

@@ -1,6 +1,4 @@
-# The GNU toolchain's resource compiler (windres, used by tauri-build to embed
-# the app icon) breaks on paths containing spaces, and this project lives in
-# "Projets Google Antigravity". Build outside of it. Also keeps the (large)
-# target directory out of OneDrive.
+# Portable default. Set CARGO_TARGET_DIR to a short path without spaces if the
+# Windows GNU resource compiler cannot handle the checkout's path.
 [build]
-target-dir = "C:/Users/Octet/.cargo-targets/g13"
+target-dir = "target"
