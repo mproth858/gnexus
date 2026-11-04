@@ -878,3 +878,9 @@ la capture, même après un événement d'état. `record_status` fournit le comp
 d'entrées Windows. Le filtre Windows écarte seulement les événements portant
 `INJECT_TAG`, pas toutes les entrées injectées par un autre logiciel. Les
 raccourcis transmis avec une touche virtuelle seule sont convertis en scan code.
+
+`WindowMacroCapture` observe aussi les événements clavier de la web view pendant
+RECORD. Si la capture native ne contient aucune touche, ces événements locaux
+servent de secours (fenêtre au premier plan). Les deux captures ne sont pas
+additionnées : pas de doubles frappes. Les modificateurs encore tenus sont
+relâchés à STOP ou à la perte du focus.

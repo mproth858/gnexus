@@ -234,10 +234,16 @@ class MacroEditor {
         this.recordTarget = this.macros[this.sel];
         this.recording = true;
         this.captureCount = 0;
+        this.localCount = 0;
+        this.localCapture = new WindowMacroCapture((count) => {
+          this.localCount = count;
+          this.captureCount = Math.max(this.captureCount, count);
+          this.renderCaptureCount();
+        });
         this.captureTimer = setInterval(async () => {
           try {
             const count = await invoke("record_status");
-            if (this.recording && count != null) { this.captureCount = count; this.renderCaptureCount(); }
+            if (this.recording && count != null) { this.captureCount = Math.max(count, this.localCount); this.renderCaptureCount(); }
           } catch (_) { /* Older/non-Windows backends still record without a live count. */ }
         }, 200);
       } catch (e) { toast(t("Enregistrement impossible : {e}", { e }), true); }
@@ -248,8 +254,11 @@ class MacroEditor {
     }
     this.recording = false;
     clearInterval(this.captureTimer);
+    const localSteps = this.localCapture?.stop(!!MacroEditor.delays) || [];
+    this.localCapture = null;
     try {
-      const steps = await invoke("record_stop", { delays: !!MacroEditor.delays });
+      const nativeSteps = await invoke("record_stop", { delays: !!MacroEditor.delays });
+      const steps = localSteps.length && !nativeSteps.some((step) => /^(down|up) /.test(step)) ? localSteps : nativeSteps;
       const m = this.recordTarget;
       if (m && steps.length) {
         m.steps = steps;
@@ -272,6 +281,8 @@ class MacroEditor {
     if (!this.recording) return;
     this.recording = false;
     clearInterval(this.captureTimer);
+    this.localCapture?.stop(false);
+    this.localCapture = null;
     this.recordTarget = null;
     this.o.recordingChanged?.();
     invoke("record_stop", { delays: false }).catch(() => {});
