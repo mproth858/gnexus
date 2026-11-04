@@ -48,8 +48,14 @@
       profile: { name: "G915", banks: { M1: {}, M2: {}, M3: {} }, macros: {} } } };
   const commands = {
     apply_keyboard: ({ settings }) => {
-      keyboard = { ...keyboard, settings: structuredClone(settings), regular_active: !!settings.regular_enabled && Object.keys(settings.regular_keys || {}).length > 0, message: "G915 settings saved", revision: keyboard.revision + 1 };
+      keyboard = { ...keyboard, bank: settings.active_bank || "M1", settings: structuredClone(settings), regular_active: !!settings.regular_enabled && Object.keys(settings.regular_keys || {}).length > 0, message: "G915 settings saved", revision: keyboard.revision + 1 };
       setTimeout(() => emit({ type: "keyboard", status: keyboard }), 50);
+    },
+    switch_keyboard_bank: ({ bank }) => {
+      keyboard = { ...keyboard, bank, settings: { ...keyboard.settings, active_bank: bank }, revision: keyboard.revision + 1, message: `G915 profile ${bank} active` };
+      const active = keyboard.settings.banks?.[bank] || keyboard.settings;
+      keyboard.regular_active = !!active.regular_enabled && Object.keys(active.regular_keys || {}).length > 0;
+      setTimeout(() => emit({ type: "keyboard", status: keyboard }), 20);
     },
     pause_regular_keys: () => {
       keyboard = { ...keyboard, regular_active: false, message: "Regular-key assignments paused. Apply to resume." };

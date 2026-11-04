@@ -845,19 +845,23 @@ body.keyboard-mode .profile-row, body.keyboard-mode .mouse-page, body.keyboard-m
 .kb-color-layout { overflow-x: auto; margin: 18px 0; padding: 4px; }
 /* Original full-size G915, shared by color and assignment views. Scroll only
    on small windows; preserve the real keycap positions and aspect ratio. */
-.g915-board { position: relative; min-width: 880px; width: 100%; aspect-ratio: 25.3 / 8.1; border: 1px solid #505763; border-radius: 9px; background: linear-gradient(105deg, #343b40, #242a2e 55%, #343b40); box-shadow: inset 0 0 0 3px #1b2024; }
+.g915-board { position: relative; min-width: 880px; width: 100%; aspect-ratio: 25.3 / 8.4; border: 1px solid #505763; border-radius: 9px; background: linear-gradient(105deg, #343b40, #242a2e 55%, #343b40); box-shadow: inset 0 0 0 3px #1b2024; }
 .g915-cap { position: absolute; box-sizing: border-box; display: flex; align-items: center; justify-content: center; min-width: 0; padding: 2px; border: 1px solid #656e78; border-radius: 4px; background: #151b20; color: #ecf1f7; font: 11px system-ui, sans-serif; overflow: hidden; }
 button.g915-cap { cursor: pointer; box-shadow: inset 0 -3px 0 #0004; }
 button.g915-cap:hover { border-color: #e4ebf7; filter: brightness(1.15); }
 button.g915-cap:focus-visible { outline: 2px solid white; outline-offset: 1px; z-index: 1; }
 button.g915-cap:disabled { opacity: .4; cursor: default; }
 .g915-cap.assigned { border-color: var(--accent); background: var(--accent-dim); }
-.g915-round, .g915-hardware { border-radius: 50%; font-size: 9px; }
+.g915-round, .g915-hardware, .g915-bank { border-radius: 50%; font-size: 10px; }
+#kb-color-layout button.g915-bank, .g915-bank { background: #1b2227; color: #c9d2dc; }
+#kb-color-layout button.g915-bank.active, .g915-bank.active { color: #fff084; background: #443e21; border: 2px solid #e6c84f; }
 .g915-indicator { border: 0; background: transparent; color: #b5c0cc; font-size: 7px; }
 .g915-hardware { color: #b5c0cc; background: #1b2227; }
 .g915-roller { border: 4px solid #13191e; border-radius: 8px; background: repeating-linear-gradient(0deg, #69737d 0, #69737d 1px, #242c33 1px, #242c33 3px); color: white; text-shadow: 0 1px 3px #000; font-size: 9px; }
 .g915-logo { border: 0; background: transparent; font-size: 32px; font-weight: bold; }
 .g915-iso-enter { clip-path: polygon(0 0, 100% 0, 100% 100%, 16.667% 100%, 16.667% 47.368%, 0 47.368%); }
-#kb-color-layout button.g915-cap { background: var(--paint); color: var(--paint-text); }
+#kb-color-layout button[data-color-key] { background: var(--paint); color: var(--paint-text); }
 #kb-color-layout button.selected { outline: 2px solid white; outline-offset: 1px; z-index: 1; box-shadow: inset 0 0 0 2px #101827; }
 .kb-paint-footer { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+
+.g915-control-label { position: absolute; text-align: center; color: #cbd4de; font: 7px system-ui, sans-serif; white-space: nowrap; pointer-events: none; }

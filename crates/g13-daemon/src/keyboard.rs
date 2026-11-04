@@ -13,6 +13,7 @@ use serde::{Deserialize, Serialize};
 use crate::{device::DeviceEvent, engine::Engine, mouse::Link, platform::InputInjector, profiles::{self, FileDto}};
 
 pub mod lighting;
+pub mod banks;
 
 const GKEYS: u16 = 0x8010;
 const MKEYS: u16 = 0x8020;
@@ -35,6 +36,10 @@ fn gkey_edges(previous: u8, next: u8) -> Vec<(G13Key, bool)> {
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct KeyboardSettings {
+    #[serde(default = "banks::default_bank")]
+    pub active_bank: String,
+    #[serde(default)]
+    pub banks: std::collections::BTreeMap<String, banks::BankSettings>,
     #[serde(default)]
     pub enabled: bool,
     /// None leaves the keyboard's lighting alone.
@@ -54,7 +59,7 @@ pub struct KeyboardSettings {
 
 impl Default for KeyboardSettings {
     fn default() -> Self {
-        Self { enabled: false, color: None, brightness: None,
+        Self { active_bank: banks::default_bank(), banks: Default::default(), enabled: false, color: None, brightness: None,
             profile: FileDto { name: "G915".into(), ..FileDto::default() }, regular_enabled: false, regular_keys: Default::default(),
             per_key_enabled: false, key_colors: Default::default() }
     }
@@ -62,6 +67,16 @@ impl Default for KeyboardSettings {
 
 impl KeyboardSettings {
     pub fn validate(&self) -> Result<(), String> {
+        banks::key(&self.active_bank)?;
+        if self.banks.keys().any(|b| !banks::NAMES.contains(&b.as_str())) {
+            return Err("G915 profiles must use M1, M2 or M3".into());
+        }
+        self.validate_active()?;
+        for bank in banks::NAMES { self.for_bank(bank).validate_active()?; }
+        Ok(())
+    }
+
+    fn validate_active(&self) -> Result<(), String> {
         if self.brightness.is_some_and(|v| v > 100) { return Err("Brightness must be between 0 and 100".into()); }
         if let Some(c) = &self.color { crate::mouse::settings::parse_color(c)?; }
         for bank in [&self.profile.banks.m1, &self.profile.banks.m2, &self.profile.banks.m3] {
@@ -99,7 +114,7 @@ pub struct KeyboardStatus {
     pub color_keys: Vec<String>,
 }
 
-pub enum KeyboardCommand { Apply(Box<KeyboardSettings>), PauseRegular }
+pub enum KeyboardCommand { Apply(Box<KeyboardSettings>), SwitchBank(String), PauseRegular }
 
 struct Keyboard {
     link: Link,
@@ -169,7 +184,7 @@ impl Keyboard {
 
     fn apply(&mut self, settings: &KeyboardSettings) -> Result<(), String> {
         settings.validate()?;
-        if (settings.enabled || settings.regular_enabled || settings.color.is_some() || settings.brightness.is_some())
+        if (settings.controls_banks() || settings.brightness.is_some())
             && crate::mouse::worker::GhubWatch::new().running() {
             return Err("Close G HUB before applying G915 settings".into());
         }
@@ -183,7 +198,7 @@ impl Keyboard {
         let frame = settings.color.as_ref().map(|color| lighting::frame(&self.leds, color,
             if settings.per_key_enabled { Some(&settings.key_colors) } else { None })).transpose()?;
         self.release();
-        if (settings.enabled || settings.color.is_some()) && let Some(i) = self.onboard {
+        if settings.controls_banks() && let Some(i) = self.onboard {
             let mode = self.link.call(i, 2, &[])?[0];
             if ![1, 2].contains(&mode) { return Err("Unknown onboard profile mode".into()); }
             self.original_mode = Some(mode);
@@ -227,9 +242,13 @@ impl Keyboard {
             if percent != 0 || info[3] & 4 == 0 { self.link.call(i, 2, &value.to_be_bytes())?; }
         }
         self.link.events.borrow_mut().clear();
-        if settings.enabled && let Some(i) = self.gkeys {
+        if settings.controls_banks() && let Some(i) = self.gkeys {
             self.diverted = true;
             self.link.call(i, 2, &[1])?;
+            if let Some(mkeys) = self.mkeys {
+                let bit = banks::NAMES.iter().position(|b| *b == settings.active_bank).ok_or("Unknown G915 profile")?;
+                self.link.call(mkeys, 1, &[1 << bit])?;
+            }
         }
         Ok(())
     }
@@ -263,7 +282,7 @@ pub fn spawn(commands: Receiver<KeyboardCommand>, publish: impl Fn(KeyboardStatu
                 let (tx, rx) = mpsc::channel();
                 let mut engine = Engine::new(injector.clone(), tx, profiles::from_dto(settings.profile.clone()).unwrap().profile);
                 engine.handle(DeviceEvent::Connected);
-                if let Err(error) = keyboard.apply(&settings).and_then(|()| apply_regular(&mut remapper, &settings)) {
+                if let Err(error) = activate(&mut keyboard, &mut engine, &mut remapper, &settings) {
                     keyboard.release();
                     let _ = remapper.configure(Default::default());
                     keyboard.status.error = true;
@@ -278,6 +297,11 @@ pub fn spawn(commands: Receiver<KeyboardCommand>, publish: impl Fn(KeyboardStatu
                     while let Ok(command) = commands.try_recv() {
                         let next = match command {
                             KeyboardCommand::Apply(next) => next,
+                            KeyboardCommand::SwitchBank(bank) => {
+                                let mut next = settings.clone();
+                                next.active_bank = bank;
+                                Box::new(next)
+                            }
                             KeyboardCommand::PauseRegular => {
                                 let result = remapper.configure(Default::default());
                                 keyboard.status.regular_active = remapper.is_active();
@@ -287,8 +311,7 @@ pub fn spawn(commands: Receiver<KeyboardCommand>, publish: impl Fn(KeyboardStatu
                                 continue;
                             }
                         };
-                        engine.handle(DeviceEvent::Disconnected);
-                        let result = keyboard.apply(&next).and_then(|()| apply_regular(&mut remapper, &next)).and_then(|()| {
+                        let result = activate(&mut keyboard, &mut engine, &mut remapper, &next).and_then(|()| {
                             let path = settings_path.as_ref().ok_or("No configuration directory")?;
                             if let Some(parent) = path.parent() { std::fs::create_dir_all(parent).map_err(|e| e.to_string())?; }
                             let temp = path.with_extension("json.tmp");
@@ -296,14 +319,13 @@ pub fn spawn(commands: Receiver<KeyboardCommand>, publish: impl Fn(KeyboardStatu
                             std::fs::rename(temp, path).map_err(|e| e.to_string())
                         });
                         if let Err(e) = result {
+                            engine.handle(DeviceEvent::Disconnected);
                             keyboard.release();
                             let _ = remapper.configure(Default::default());
                             keyboard.status.error = true;
                             keyboard.status.message = Some(e);
                         } else {
                             settings = *next;
-                            engine.set_profile(profiles::from_dto(settings.profile.clone()).unwrap().profile);
-                            engine.handle(DeviceEvent::Connected);
                             keyboard.status.settings = settings.clone();
                             keyboard.status.error = false;
                             keyboard.status.message = Some("G915 settings saved".into());
@@ -319,7 +341,7 @@ pub fn spawn(commands: Receiver<KeyboardCommand>, publish: impl Fn(KeyboardStatu
                             reconfigured = Instant::now();
                             engine.handle(DeviceEvent::Disconnected);
                             let _ = remapper.configure(Default::default());
-                            let result = keyboard.apply(&settings).and_then(|()| apply_regular(&mut remapper, &settings));
+                            let result = activate(&mut keyboard, &mut engine, &mut remapper, &settings);
                             keyboard.status.error = result.is_err();
                             keyboard.status.message = result.err();
                             if !keyboard.status.error { engine.handle(DeviceEvent::Connected); }
@@ -328,19 +350,31 @@ pub fn spawn(commands: Receiver<KeyboardCommand>, publish: impl Fn(KeyboardStatu
                             keyboard.status.regular_active = remapper.is_active();
                             publish(keyboard.status.clone());
                         } else if keyboard.diverted && !keyboard.status.error && function == 0 {
-                            if Some(feature) == keyboard.gkeys {
+                            if Some(feature) == keyboard.gkeys && settings.enabled {
                                 let mask = data[0] & 0x1F;
                                 for (key, pressed) in gkey_edges(keyboard.status.held, mask) {
                                     engine.handle(DeviceEvent::Key { key, pressed });
                                 }
                                 keyboard.status.held = mask;
-                            } else if Some(feature) == keyboard.mkeys {
-                                for (bit, key) in [G13Key::M1, G13Key::M2, G13Key::M3].into_iter().enumerate() {
-                                    if data[0] & (1 << bit) != 0 {
-                                        engine.handle(DeviceEvent::Key { key, pressed: true });
-                                        engine.handle(DeviceEvent::Key { key, pressed: false });
+                            } else if Some(feature) == keyboard.mkeys
+                                && let Some(bank) = banks::from_mask(data[0])
+                                && bank != settings.active_bank {
+                                let mut next = settings.clone();
+                                next.active_bank = bank.into();
+                                match activate(&mut keyboard, &mut engine, &mut remapper, &next) {
+                                    Ok(()) => {
+                                        settings = next;
+                                        keyboard.status.settings = settings.clone();
+                                        keyboard.status.message = Some(format!("G915 profile {bank} active"));
+                                    }
+                                    Err(error) => {
+                                        keyboard.release();
+                                        let _ = remapper.configure(Default::default());
+                                        keyboard.status.error = true;
+                                        keyboard.status.message = Some(error);
                                     }
                                 }
+                                keyboard.status.regular_active = remapper.is_active();
                             }
                             keyboard.status.bank = engine.active_bank_name().into();
                             publish(keyboard.status.clone());
@@ -381,6 +415,26 @@ pub fn spawn(commands: Receiver<KeyboardCommand>, publish: impl Fn(KeyboardStatu
             }
         }
     })
+}
+
+// All bank changes release held outputs and stop macro players before replacing
+// either map. A failure leaves input unmapped, never a partially active profile.
+fn activate(keyboard: &mut Keyboard, engine: &mut Engine, remapper: &mut crate::remap::Service,
+    settings: &KeyboardSettings) -> Result<(), String> {
+    settings.validate()?;
+    engine.handle(DeviceEvent::Disconnected);
+    remapper.configure(Default::default())?;
+    keyboard.status.held = 0;
+    let effective = settings.for_bank(&settings.active_bank);
+    keyboard.apply(&effective)?;
+    apply_regular(remapper, &effective)?;
+    engine.set_profile(profiles::from_dto(settings.profile.clone()).map_err(|e| e.to_string())?.profile);
+    engine.handle(DeviceEvent::Connected);
+    let key = banks::key(&settings.active_bank)?;
+    engine.handle(DeviceEvent::Key { key, pressed: true });
+    engine.handle(DeviceEvent::Key { key, pressed: false });
+    keyboard.status.bank = engine.active_bank_name().into();
+    Ok(())
 }
 
 fn apply_regular(remapper: &mut crate::remap::Service, settings: &KeyboardSettings) -> Result<(), String> {

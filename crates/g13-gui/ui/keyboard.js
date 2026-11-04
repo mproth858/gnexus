@@ -7,6 +7,7 @@ const Keyboard = {
   dirty: false,
   saving: false,
   colorSelection: new Set(),
+  bankFields: ["color", "brightness", "regular_enabled", "regular_keys", "per_key_enabled", "key_colors"],
 
   init() {
     this.editor = new MacroEditor({
@@ -20,13 +21,17 @@ const Keyboard = {
     });
     $("#kb-banks").addEventListener("click", (e) => {
       const bank = e.target.closest("[data-bank]")?.dataset.bank;
-      if (bank) { this.bank = bank; this.renderKeys(); this.renderRegular(); }
+      if (bank) this.selectBank(bank);
     });
     $("#kb-regular-source").innerHTML = ALL_CODES.map((key) => `<option value="${esc(key)}">${esc(KEY_LABELS[key] || key)} (${esc(key)})</option>`).join("");
     $("#kb-per-key").addEventListener("change", (e) => {
       this.draft.per_key_enabled = e.target.checked;
       if (e.target.checked) this.enableLighting();
       this.changed();
+    });
+    for (const id of ["kb-color-layout", "kb-regular-layout"]) $("#" + id).addEventListener("click", (e) => {
+      const bank = e.target.closest("[data-bank]")?.dataset.bank;
+      if (bank) this.selectBank(bank);
     });
     $("#kb-color-layout").addEventListener("click", (e) => {
       const key = e.target.closest("[data-color-key]")?.dataset.colorKey;
@@ -85,21 +90,69 @@ const Keyboard = {
       });
     }
     $("#kb-reset").addEventListener("click", () => {
-      this.draft = structuredClone(this.status.settings);
-      this.draft.regular_keys ??= {};
-      this.draft.regular_enabled ??= false;
-      this.draft.per_key_enabled ??= false;
-      this.draft.key_colors ??= {};
+      this.loadDraft(this.status.settings);
       this.dirty = false;
       this.render();
     });
     $("#kb-save").addEventListener("click", async () => {
+      this.stashBank();
       this.savingRevision = this.status?.revision ?? 0;
       this.saving = true;
       this.renderButtons();
       try { await invoke("apply_keyboard", { settings: this.draft }); }
       catch (e) { this.saving = false; toast(String(e), true); this.renderButtons(); }
     });
+  },
+
+  loadDraft(settings) {
+    this.draft = structuredClone(settings);
+    this.draft.regular_keys ??= {};
+    this.draft.regular_enabled ??= false;
+    this.draft.per_key_enabled ??= false;
+    this.draft.key_colors ??= {};
+    this.draft.profile.macros ??= {};
+    this.draft.banks ??= {};
+    // Start all missing profiles with the user's legacy lighting/regular map.
+    for (const bank of ["M1", "M2", "M3"]) this.draft.banks[bank] ??= Object.fromEntries(this.bankFields.map(f => [f, structuredClone(this.draft[f])]));
+    this.bank = settings.active_bank || "M1";
+    this.readBank(this.bank);
+  },
+
+  stashBank() {
+    this.draft.banks[this.bank] = Object.fromEntries(this.bankFields.map(f => [f, structuredClone(this.draft[f])]));
+    this.draft.active_bank = this.bank;
+  },
+
+  readBank(bank) {
+    this.bank = bank;
+    this.draft.active_bank = bank;
+    for (const field of this.bankFields) this.draft[field] = structuredClone(this.draft.banks[bank][field]);
+  },
+
+  async selectBank(bank) {
+    if (!["M1", "M2", "M3"].includes(bank) || !this.draft || this.saving || this.editor.recording || this.editor.recordBusy || bank === this.bank) return;
+    if (this.dirty) {
+      this.stashBank();
+      this.readBank(bank);
+      this.fillControls();
+      this.render();
+      return;
+    }
+    this.savingRevision = this.status?.revision ?? 0;
+    this.saving = true;
+    this.renderButtons();
+    try { await invoke("switch_keyboard_bank", { bank }); }
+    catch (e) { this.saving = false; toast(String(e), true); this.renderButtons(); }
+  },
+
+  fillControls() {
+    $("#kb-enabled").checked = this.draft.enabled;
+    $("#kb-lighting").checked = this.draft.color != null;
+    $("#kb-color").value = this.draft.color || "#1e56e4";
+    $("#kb-brightness-on").checked = this.draft.brightness != null;
+    $("#kb-brightness").value = this.draft.brightness ?? 100;
+    $("#kb-brightness-value").textContent = (this.draft.brightness ?? 100) + "%";
+    $("#kb-regular-enabled").checked = !!this.draft.regular_enabled;
   },
 
   pickGkey(key) {
@@ -128,13 +181,19 @@ const Keyboard = {
         if (action == null) delete bank[key]; else bank[key] = action;
       }
     }
+    for (const bank of Object.values(this.draft.banks)) {
+      for (const key of Object.keys(bank.regular_keys || {})) {
+        const action = visit(bank.regular_keys[key]);
+        if (action == null) delete bank.regular_keys[key]; else bank.regular_keys[key] = action;
+      }
+    }
     for (const key of Object.keys(this.draft.regular_keys || {})) {
       const action = visit(this.draft.regular_keys[key]);
       if (action == null) delete this.draft.regular_keys[key]; else this.draft.regular_keys[key] = action;
     }
   },
 
-  changed() { this.dirty = true; this.renderKeys(); this.renderRegular(); this.renderLighting(); this.renderButtons(); },
+  changed() { this.stashBank(); this.dirty = true; this.render(); },
 
   enableLighting() {
     this.draft.color ??= $("#kb-color").value || "#1E56E4";
@@ -160,7 +219,7 @@ const Keyboard = {
         class="${classes} ${this.colorSelection.has(key) ? "selected" : ""}" style="${position}--paint:${rgb};--paint-text:${bright > 145 ? "#111827" : "#ffffff"}"
         title="${esc(key + " · " + rgb + (this.draft.key_colors[key] ? " · Individual color" : " · Base color"))}" ${!supported || !available.has(key) || busy ? "disabled" : ""}>${esc(text || label(key))}</button>`;
     };
-    $("#kb-color-layout").innerHTML = G915Layout.render(keyButton);
+    $("#kb-color-layout").innerHTML = G915Layout.render(keyButton, this.bank, this.editor.recording || this.editor.recordBusy);
     $("#kb-paint-selection").textContent = this.colorSelection.size ? `${this.colorSelection.size} selected: ${[...this.colorSelection].slice(0, 12).map(label).join(", ")}${this.colorSelection.size > 12 ? "…" : ""}` : "No keys selected";
     $("#kb-painted-count").textContent = `${Object.keys(this.draft.key_colors).length} keys with custom colors${this.draft.per_key_enabled ? "" : " · disabled"}`;
     $$("#kb-paint-apply, #kb-paint-reset").forEach((b) => { b.disabled = !supported || !this.colorSelection.size || busy; });
@@ -189,7 +248,7 @@ const Keyboard = {
       const action = gkey ? bank[key] : assignments[key];
       const disabled = !this.status?.[gkey ? "gkeys_supported" : "regular_supported"] || this.editor.recording || this.editor.recordBusy;
       return `<button type="button" ${gkey ? "data-key" : "data-regular"}="${esc(key)}" class="${classes} ${action ? "assigned" : ""}" style="${position}" title="${esc(key + (gkey ? " · " + this.bank : "") + (action ? " → " + actionLabel(action) : " · Default"))}" ${disabled ? "disabled" : ""}>${esc(label)}</button>`;
-    });
+    }, this.bank, this.editor.recording || this.editor.recordBusy);
     $("#kb-regular-list").innerHTML = Object.entries(assignments).map(([key, action]) =>
       `<div class="kb-regular-assignment"><button type="button" data-regular="${esc(key)}"><b>${esc(KEY_LABELS[key] || key)}</b> → ${esc(actionLabel(action))}</button><button type="button" data-restore="${esc(key)}" class="ghost">Restore default</button></div>`).join("") || '<p>No regular-key overrides.</p>';
     $("#kb-regular-state").textContent = !this.status?.regular_supported ? "Windows only" : this.status?.regular_active ? "Active" : "Paused / disabled";
@@ -207,12 +266,7 @@ const Keyboard = {
       if (!status.error) this.dirty = false;
       toast(status.message || "G915 disconnected before settings were applied", status.error || !status.connected);
     }
-    if (!this.dirty && !this.editor.recording && !this.editor.recordBusy) this.draft = structuredClone(status.settings);
-    this.draft.profile.macros ??= {};
-    this.draft.regular_keys ??= {};
-    this.draft.regular_enabled ??= false;
-    this.draft.per_key_enabled ??= false;
-    this.draft.key_colors ??= {};
+    if (!this.dirty && !this.editor.recording && !this.editor.recordBusy) this.loadDraft(status.settings);
     this.render();
   },
 
@@ -239,7 +293,7 @@ const Keyboard = {
     const s = this.status;
     $$('.dev-tabs [data-dev="keyboard"]').forEach((tab) => tab.classList.toggle("off", !s?.connected));
     $("#kb-state").textContent = s?.connected
-      ? `${s.transport} · ${s.voltage_mv != null ? (s.voltage_mv / 1000).toFixed(2) + " V · " : ""}Active bank: ${s.bank}`
+      ? `${s.transport} · ${s.voltage_mv != null ? (s.voltage_mv / 1000).toFixed(2) + " V · " : ""}Active profile: ${s.bank}`
       : "G915 not detected. Wake the keyboard and connect USB, LIGHTSPEED, or Bluetooth.";
     $("#kb-controls").disabled = !s?.connected || this.saving;
     if (!this.draft) return;
@@ -249,14 +303,10 @@ const Keyboard = {
     $("#kb-brightness-on").disabled = !s?.brightness_supported && this.draft.brightness == null;
     // Do not replace the macro editor while the user is typing.
     if (!this.dirty && !this.editor.recording && !this.editor.recordBusy) {
-      $("#kb-enabled").checked = this.draft.enabled;
-      $("#kb-lighting").checked = this.draft.color != null;
-      $("#kb-color").value = this.draft.color || "#1e56e4";
-      $("#kb-brightness-on").checked = this.draft.brightness != null;
-      $("#kb-brightness").value = this.draft.brightness ?? 100;
-      $("#kb-brightness-value").textContent = (this.draft.brightness ?? 100) + "%";
+      this.fillControls();
       this.editor.render();
     }
+    $("#kb-editing-profile").textContent = `Editing ${this.bank}${this.bank !== s?.bank ? ` · Active on keyboard: ${s?.bank || "—"}` : ""}${this.dirty ? " · Apply and save to activate changes" : ""}`;
     this.renderKeys();
     this.renderRegular();
     this.renderLighting();

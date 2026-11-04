@@ -939,3 +939,32 @@ Les variantes ANSI/ISO conservent les noms physiques et les légendes choisies.
 Les boutons M, liaison et jeu, les voyants et la molette sont des repères visuels,
 sans promesse de réglage RGB. Dans la vue affectations, cliquer une touche G
 ouvre le sélecteur de la banque M active, distinct des remappages Windows.
+
+
+## Profils M1–M3 du G915
+
+`keyboard/banks.rs` conserve les réglages de lumière (base, peinture, luminosité)
+et les remappages ordinaires séparément pour M1, M2 et M3. Les affectations G
+restent dans les banques `FileDto` existantes ; les macros sont partagées.
+Un ancien `g915.json` sans `banks` hérite de sa configuration existante pour
+chaque banque. Toutes les banques sont validées, même celles inactives.
+
+Le worker est l'unique propriétaire HID. Les notifications 0x8020 sélectionnent
+la banque ; `SwitchBank` offre le même chemin depuis Tauri. Chaque activation
+relâche les sorties et arrête les macros avant de remplacer les remappages,
+la banque moteur, les couleurs et la LED M active (0x8020, fonction 1, masque).
+Le protocole des voyants est documenté par [Solaar](https://github.com/pwr-Solaar/Solaar/blob/master/lib/logitech_receiver/settings_templates.py)
+dans `MKeyLEDs` ; aucune zone RGB M/MR n’est inventée.
+Une banque sans lumière conserve l'écoute M si une autre banque utilise le
+contrôle logiciel. Une erreur désactive les sorties et publie son état.
+La restauration après réveil et reconnexion utilise la banque sélectionnée.
+Les sélections depuis l'application sont sauvegardées ; une touche M physique
+change la sélection en mémoire jusqu'à la prochaine sauvegarde des réglages.
+
+L'interface distingue profil actif et profil en édition. Les modifications
+non sauvegardées survivent à une sélection M physique ; une sélection M dans
+l'éditeur conserve tous les brouillons et Apply and save les écrit ensemble.
+Les commandes du haut sont visibles avec des légendes ; seuls les sélecteurs
+M prennent une nouvelle action. MR, liaison, Bluetooth, jeu et luminosité ne
+reçoivent aucune réaffectation supplémentaire. Les voyants M restent à couleur
+fixe : ils ne sont pas annoncés comme zones RGB.

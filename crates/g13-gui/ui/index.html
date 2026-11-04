@@ -158,7 +158,11 @@
     <div class="kb-heading"><h1>G915</h1><p id="kb-state" role="status">Looking for your keyboard…</p></div>
     <p>Close G HUB before applying changes. Keys without an assignment keep their normal behavior.</p>
     <fieldset id="kb-controls">
-      <legend>Lighting</legend>
+      <legend>G915 profiles</legend>
+      <div class="kb-banks" id="kb-banks"><button data-bank="M1" class="on">M1</button><button data-bank="M2">M2</button><button data-bank="M3">M3</button></div>
+      <p id="kb-editing-profile" role="status"></p>
+      <p>Each M profile has its own colors, brightness, G-key assignments and regular-key overrides. Save your edits, then press M1–M3 on the keyboard or click them here to switch. With unsaved edits, M1–M3 select the profile to edit; Apply and save activates it.</p>
+      <h2>Lighting</h2>
       <label><input id="kb-lighting" type="checkbox"> Control lighting</label>
       <label>Base color <input id="kb-color" type="color" value="#1e56e4"></label>
       <label><input id="kb-brightness-on" type="checkbox"> Control brightness</label>
@@ -176,12 +180,12 @@
         </div>
         <p id="kb-paint-selection" role="status">No keys selected</p>
         <div id="kb-color-layout" class="kb-color-layout"></div>
+        <p>The top row shows M1–M3, MR, LIGHTSPEED, Bluetooth, game mode and brightness. M1–M3 select profiles; MR and the other hardware controls keep their standard functions. The M indicators use the keyboard’s fixed indicator color.</p>
         <div class="kb-paint-footer"><span id="kb-painted-count"></span><button id="kb-paint-clear" class="ghost" type="button">Clear all individual colors</button></div>
       </details>
       <hr>
       <label><input id="kb-enabled" type="checkbox"> Enable G-key remapping while G Nexus runs</label>
-      <div class="kb-banks" id="kb-banks"><button data-bank="M1" class="on">M1</button><button data-bank="M2">M2</button><button data-bank="M3">M3</button></div>
-      <p>Choose a G-key to assign a shortcut, mouse action, or macro. The M1–M3 keys on your keyboard switch the active bank.</p>
+      <p>Choose a G-key to assign a shortcut, mouse action, or macro. The M1–M3 keys on your keyboard switch colors and key mappings together.</p>
       <div id="kb-keys" class="kb-keys"></div>
       <details id="kb-regular"><summary>Regular keys</summary>
         <p>These overrides apply to all Windows keyboards while G Nexus runs and the G915 is connected. They pause during macro recording.</p>

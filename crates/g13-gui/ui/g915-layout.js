@@ -5,7 +5,7 @@
 // the G915 has 1.5u Ctrl keys and a 5.75u spacebar. This is not the G915 X/TKL.
 const G915Layout = {
   width: 25.3,
-  height: 8.1,
+  height: 8.4,
 
   keys() {
     const keys = [];
@@ -20,9 +20,9 @@ const G915Layout = {
       }
     };
     add("Logo", .4, .2, 1, .85, "G", "logo");
-    ["M1", "M2", "M3", "MR"].forEach((key, i) => add(key, main + 1.8 + i * .95, .3, .7, .7, key, "hardware"));
+    ["M1", "M2", "M3", "MR"].forEach((key, i) => add(key, main + 1.8 + i * .95, .2, .85, .85, key, "bank"));
     [["Lightspeed", "◉"], ["Bluetooth", "BT"], ["GameMode", "Game"], ["Brightness", "☀"]]
-      .forEach(([key, label], i) => add(key, main + 6.5 + i * .95, .3, .7, .7, label, key === "Brightness" ? "round" : "hardware"));
+      .forEach(([key, label], i) => add(key, main + 6.5 + i * .95, .2, .85, .85, label, key === "Brightness" ? "round" : "hardware"));
     add("CapsIndicator", main + 11.5, .3, 1, .7, "CAPS ●", "indicator");
     add("BatteryIndicator", main + 12.8, .3, 1, .7, "BATTERY ●", "indicator");
     add("WirelessLabel", nav + .45, .15, 2.1, .8, "LIGHTSPEED", "indicator");
@@ -62,17 +62,20 @@ const G915Layout = {
     return short[key] ?? (key.startsWith("Numpad") ? key.slice(6) : KEY_LABELS[key] || key);
   },
 
-  render(button) {
+  render(button, bank = "M1", busy = false) {
     return `<div class="g915-board" aria-label="G915 full-size keyboard">${this.keys().map((item) => {
       const { key, x, y, w, h, kind } = item;
       const label = item.label ?? this.label(key);
       const position = `left:${x / this.width * 100}%;top:${y / this.height * 100}%;width:${(w - .1) / this.width * 100}%;height:${(h - .1) / this.height * 100}%;`;
-      if (["hardware", "indicator", "roller"].includes(kind)) {
-        const name = { Lightspeed: "LIGHTSPEED", Bluetooth: "Bluetooth", GameMode: "Game mode" }[key] || label;
+      const caption = { Lightspeed: "LIGHTSPEED", Bluetooth: "Bluetooth", GameMode: "Game mode", Brightness: "Brightness" }[key];
+      const captionHtml = caption ? `<span class="g915-control-label" style="left:${(x - .15) / this.width * 100}%;top:${1.05 / this.height * 100}%;width:${1.05 / this.width * 100}%">${caption}</span>` : "";
+      if (kind === "bank" && key !== "MR") return `<button type="button" class="g915-cap g915-bank ${key === bank ? "active" : ""}" data-bank="${key}" style="${position}" aria-pressed="${key === bank}" title="${key} · Switch colors and key assignments" ${busy ? "disabled" : ""}>${key}</button>`;
+      if (["hardware", "indicator", "roller", "bank"].includes(kind)) {
+        const name = { Lightspeed: "LIGHTSPEED", Bluetooth: "Bluetooth", GameMode: "Game mode", MR: "MR · Macro record (keyboard function)" }[key] || label;
         const description = kind === "roller" ? "Volume roller · no individual RGB LED" : `${name} · hardware control / indicator`;
-        return `<span class="g915-cap g915-${kind}" data-hardware="${key}" style="${position}" title="${esc(description)}" aria-label="${esc(description)}">${esc(label)}</span>`;
+        return `<span class="g915-cap g915-${kind === "bank" ? "hardware" : kind}" data-hardware="${key}" style="${position}" title="${esc(description)}" aria-label="${esc(description)}">${esc(label)}</span>${captionHtml}`;
       }
-      return button(key, label, position, `g915-cap g915-${kind}`);
+      return button(key, label, position, `g915-cap g915-${kind}`) + captionHtml;
     }).join("")}</div>`;
   },
 };

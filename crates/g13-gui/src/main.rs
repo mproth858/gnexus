@@ -146,6 +146,16 @@ fn apply_keyboard(state: State<AppState>, settings: g13_daemon::keyboard::Keyboa
 }
 
 #[tauri::command]
+fn switch_keyboard_bank(state: State<AppState>, bank: String) -> Result<(), String> {
+    g13_daemon::keyboard::banks::key(&bank)?;
+    if !state.status.lock().unwrap().keyboard.as_ref().is_some_and(|k| k.connected) {
+        return Err("G915 is not connected".into());
+    }
+    state.runtime.lock().unwrap().as_ref().ok_or("Engine stopped")?
+        .keyboard(g13_daemon::keyboard::KeyboardCommand::SwitchBank(bank))
+}
+
+#[tauri::command]
 fn pause_regular_keys(state: State<AppState>) -> Result<(), String> {
     state.runtime.lock().unwrap().as_ref().ok_or("Engine stopped")?
         .keyboard(g13_daemon::keyboard::KeyboardCommand::PauseRegular)
@@ -1441,6 +1451,7 @@ fn main() {
             gamepad_status,
             get_mouse,
             apply_keyboard,
+            switch_keyboard_bank,
             pause_regular_keys,
             get_headset,
             set_headset_sidetone,
