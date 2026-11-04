@@ -15,3 +15,6 @@ SUBSYSTEM=="hidraw", ATTRS{idVendor}=="046d", ATTRS{idProduct}=="0aba", TAG+="ua
 
 # /dev/uinput : clavier / souris / manette virtuels de G Nexus
 KERNEL=="uinput", SUBSYSTEM=="misc", TAG+="uaccess", OPTIONS+="static_node=uinput"
+
+# Yeti GX microphone: HID++ control collection (USB audio uses the system driver).
+SUBSYSTEM=="hidraw", ATTRS{idVendor}=="046d", ATTRS{idProduct}=="0afc", TAG+="uaccess"

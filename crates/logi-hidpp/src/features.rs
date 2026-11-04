@@ -60,6 +60,7 @@ pub fn name(id: u16) -> &'static str {
         0x8020 => "MKeys",
         0x8030 => "MacroRecordKey",
         0x8040 => "BrightnessControl",
+        0x8370 => "MicrophoneControl",
         0x8060 => "ReportRate",
         0x8061 => "ExtendedReportRate",
         0x8070 => "ColorLedEffects",

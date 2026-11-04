@@ -39,7 +39,7 @@ const { chromium } = require('playwright');
     await page.waitForFunction(() => S.dto && Keyboard.draft);
     await checkEnglish('restart');
 
-    for (const device of ['g13', 'mouse', 'headset', 'keyboard']) {
+    for (const device of ['g13', 'mouse', 'headset', 'keyboard', 'microphone']) {
       await page.locator(`#dev-tabs [data-dev="${device}"]`).click();
       await checkEnglish(device);
     }
@@ -72,6 +72,6 @@ const { chromium } = require('playwright');
       await checkEnglish(label);
     }
     assert.deepEqual(errors, []);
-    console.log('English UI: default/reload, all four devices, settings, assignment tabs, macros and mouse controls passed.');
+    console.log('English UI: default/reload, all five devices, settings, assignment tabs, macros and mouse controls passed.');
   } finally { await browser.close(); }
 })().catch(error => { console.error(error); process.exitCode = 1; });

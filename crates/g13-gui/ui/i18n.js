@@ -967,7 +967,7 @@ const TR = {
   "À PROPOS": ["ABOUT", "ÜBER", "INFORMAZIONI", "ACERCA DE"],
   "version {v}": ["version {v}", "Version {v}", "versione {v}", "versión {v}"],
   "G Nexus remplace Logitech Gaming Software et G HUB pour le clavier G13, la souris G502 X PLUS et le casque PRO X Wireless : touches et macros, profils par jeu, éclairage, écran LCD du G13 et égaliseur du casque, sous Windows et Linux.": [
-    "G Nexus replaces Logitech Gaming Software and G HUB for the G13 keyboard, the G502 X PLUS mouse and the PRO X Wireless headset: keys and macros, per-game profiles, lighting, the G13's LCD screen and the headset's equalizer, on Windows and Linux.",
+    "G Nexus configures the G13 and G915 keyboards, G502 X PLUS mouse, PRO X Wireless headset and Yeti GX microphone: key assignments, macros, per-game profiles, lighting, G13 LCD pages and audio controls.",
     "G Nexus ersetzt Logitech Gaming Software und G HUB für die G13-Tastatur, die G502 X PLUS-Maus und das PRO X Wireless-Headset: Tasten und Makros, Profile pro Spiel, Beleuchtung, LCD-Display des G13 und Equalizer des Headsets, unter Windows und Linux.",
     "G Nexus sostituisce Logitech Gaming Software e G HUB per la tastiera G13, il mouse G502 X PLUS e le cuffie PRO X Wireless: tasti e macro, profili per gioco, illuminazione, schermo LCD del G13 ed equalizzatore delle cuffie, su Windows e Linux.",
     "G Nexus sustituye a Logitech Gaming Software y G HUB para el teclado G13, el ratón G502 X PLUS y los auriculares PRO X Wireless: teclas y macros, perfiles por juego, iluminación, pantalla LCD del G13 y ecualizador de los auriculares, en Windows y Linux."],

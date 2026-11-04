@@ -64,6 +64,7 @@ pub enum UiEvent {
     /// New state of the headset (on / off, battery, sidetone, equalizer…).
     Headset(Box<crate::headset::HeadsetStatus>),
     Keyboard(Box<crate::keyboard::KeyboardStatus>),
+    Microphone(Box<crate::microphone::Status>),
     /// New LCD image (960 bytes: 6 pages × 160 columns, bit 0 = top), for
     /// the GUI's live preview.
     LcdFrame(Box<[u8; 960]>),

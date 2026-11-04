@@ -11,6 +11,7 @@
 /** Show the G13 ("g13"), the mouse ("mouse") or the headset ("headset"). */
 function showDevice(dev) {
   if (dev !== "keyboard") Keyboard.editor?.abort();
+  document.body.classList.toggle("microphone-mode", dev === "microphone");
   document.body.classList.toggle("keyboard-mode", dev === "keyboard");
   document.body.classList.toggle("mouse-mode", dev === "mouse");
   document.body.classList.toggle("headset-mode", dev === "headset");
@@ -18,6 +19,7 @@ function showDevice(dev) {
   if (dev === "mouse") Mouse.render();
   if (dev === "headset") Headset.render();
   if (dev === "keyboard") Keyboard.render();
+  if (dev === "microphone") Microphone.render();
   if (typeof OVERLAY !== "undefined" && OVERLAY) renderOverlayHead();
 }
 

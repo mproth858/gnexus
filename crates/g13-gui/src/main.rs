@@ -58,6 +58,7 @@ struct Status {
     /// Last known state of the headset (PRO X Wireless…).
     headset: Option<HeadsetStatus>,
     keyboard: Option<g13_daemon::keyboard::KeyboardStatus>,
+    microphone: Option<g13_daemon::microphone::Status>,
 }
 
 /// Event pushed to the front-end (`g13` channel).
@@ -81,6 +82,7 @@ enum Ev {
     /// New state of the headset.
     Headset { status: Box<HeadsetStatus> },
     Keyboard { status: Box<g13_daemon::keyboard::KeyboardStatus> },
+    Microphone { status: Box<g13_daemon::microphone::Status> },
 }
 
 struct AppState {
@@ -133,6 +135,27 @@ fn get_status(state: State<AppState>) -> Status {
 #[tauri::command]
 fn get_mouse(state: State<AppState>) -> Option<MouseStatus> {
     state.status.lock().unwrap().mouse.clone()
+}
+
+#[tauri::command]
+fn set_microphone_control(state: State<AppState>, control: String, value: u8) -> Result<(), String> {
+    use g13_daemon::microphone::{Command, protocol::Control};
+    let action = match control.as_str() {
+        "gain" => Control::Gain(value),
+        "mute" if value <= 1 => Control::Mute(value != 0),
+        "smart_lock" if value <= 1 => Control::SmartLock(value != 0),
+        _ => return Err("Unknown microphone control or invalid value".into()),
+    };
+    action.params()?;
+    if !state.status.lock().unwrap().microphone.as_ref().is_some_and(|m| m.connected) { return Err("Yeti GX is not connected".into()); }
+    state.runtime.lock().unwrap().as_ref().ok_or("Engine stopped")?.microphone(Command::Control(action))
+}
+
+#[tauri::command]
+fn set_microphone_lighting(state: State<AppState>, settings: g13_daemon::microphone::Settings) -> Result<(), String> {
+    settings.validate()?;
+    if !state.status.lock().unwrap().microphone.as_ref().is_some_and(|m| m.connected) { return Err("Yeti GX is not connected".into()); }
+    state.runtime.lock().unwrap().as_ref().ok_or("Engine stopped")?.microphone(g13_daemon::microphone::Command::Lighting(settings))
 }
 
 #[tauri::command]
@@ -1219,6 +1242,10 @@ fn forward_events(app: AppHandle, rx: std::sync::mpsc::Receiver<UiEvent>, status
                             s.headset = Some((*st).clone());
                             Some(Ev::Headset { status: st })
                         }
+                        UiEvent::Microphone(st) => {
+                            s.microphone = Some((*st).clone());
+                            Some(Ev::Microphone { status: st })
+                        }
                         UiEvent::Keyboard(st) => {
                             s.keyboard = Some((*st).clone());
                             Some(Ev::Keyboard { status: st })
@@ -1452,6 +1479,8 @@ fn main() {
             gamepad_status,
             get_mouse,
             apply_keyboard,
+            set_microphone_control,
+            set_microphone_lighting,
             switch_keyboard_bank,
             pause_regular_keys,
             get_headset,

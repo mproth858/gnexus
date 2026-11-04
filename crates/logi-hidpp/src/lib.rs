@@ -34,7 +34,7 @@ pub const DIRECT: u8 = 0xFF;
 /// them apart from those of another program talking to the same device.
 pub const SW_ID: u8 = 0x0D;
 
-/// A HID++ 2.0 request (always sent as a long report).
+/// A HID++ 2.0 request (long by default; short form when its parameters fit).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Request {
     pub device: u8,
@@ -67,6 +67,15 @@ impl Request {
         b[3] = (self.function << 4) | (self.sw_id & 0x0F);
         b[4..].copy_from_slice(&self.params);
         b
+    }
+
+    /// Seven-byte form, without silently dropping nonzero parameter bytes.
+    pub fn to_short_bytes(&self) -> Option<[u8; SHORT_LEN]> {
+        if self.params[3..].iter().any(|byte| *byte != 0) { return None; }
+        let mut bytes = [0; SHORT_LEN];
+        bytes.copy_from_slice(&self.to_bytes()[..SHORT_LEN]);
+        bytes[0] = REPORT_SHORT;
+        Some(bytes)
     }
 
     /// Is `msg` the answer to this request (reply or error)?

@@ -33,7 +33,20 @@ impl Link {
     /// Send a request and wait for its own answer (other programs' replies are skipped).
     pub fn call(&self, feature_index: u8, function: u8, params: &[u8]) -> Result<[u8; 16], String> {
         let req = Request::new(self.index, feature_index, function, params).with_sw_id(self.sw_id);
-        self.dev.write(&req.to_bytes()).map_err(|e| format!("Write failed: {e}"))?;
+        self.exchange(&req, &req.to_bytes())
+    }
+
+    /// Some audio devices use the seven-byte form for their control fields.
+    /// Keep the same reply matching/event queue as the existing long transport.
+    pub fn call_short(&self, feature_index: u8, function: u8, params: &[u8]) -> Result<[u8; 16], String> {
+        if params.len() > 3 { return Err("A short HID++ request holds at most three parameters".into()); }
+        let req = Request::new(self.index, feature_index, function, params).with_sw_id(self.sw_id);
+        let bytes = req.to_short_bytes().ok_or("Short HID++ request would truncate parameters")?;
+        self.exchange(&req, &bytes)
+    }
+
+    fn exchange(&self, req: &Request, bytes: &[u8]) -> Result<[u8; 16], String> {
+        self.dev.write(bytes).map_err(|e| format!("Write failed: {e}"))?;
         let deadline = Instant::now() + self.timeout;
         let mut buf = [0u8; 64];
         loop {

@@ -78,6 +78,7 @@ pub struct Runtime {
     mouse: Option<(Sender<MouseCommand>, JoinHandle<()>)>,
     headset: Option<(Sender<HeadsetCommand>, JoinHandle<()>)>,
     keyboard: Option<(Sender<crate::keyboard::KeyboardCommand>, JoinHandle<()>)>,
+    microphone: Option<(Sender<crate::microphone::Command>, JoinHandle<()>)>,
 }
 
 impl Runtime {
@@ -171,6 +172,14 @@ impl Runtime {
             Ok(h) => Some((keyboard_tx, h)),
             Err(e) => { log::error!("could not start G915 thread: {e}"); None }
         };
+        let (microphone_tx, microphone_rx) = channel();
+        let microphone_events = req_tx.clone();
+        let microphone = match crate::microphone::spawn(microphone_rx, move |status| {
+            let _ = microphone_events.send(Request::Emit(UiEvent::Microphone(Box::new(status))));
+        }, shutdown.clone(), profiles_dir.as_ref().and_then(|p| p.parent()).map(Path::to_path_buf)) {
+            Ok(handle) => Some((microphone_tx, handle)),
+            Err(error) => { log::error!("Could not start Yeti GX worker: {error}"); None }
+        };
         let engine_shutdown = shutdown.clone();
         let engine_thread = thread::Builder::new()
             .name("g13-engine".into())
@@ -201,7 +210,7 @@ impl Runtime {
             .map_err(|e| format!("could not start engine thread: {e}"))?;
 
         Ok((
-            Self { shutdown, recent, requests: req_tx, profiles_dir, engine: Some(engine_thread), hid: Some(hid), mouse, headset, keyboard },
+            Self { shutdown, recent, requests: req_tx, profiles_dir, engine: Some(engine_thread), hid: Some(hid), mouse, headset, keyboard, microphone },
             ui,
         ))
     }
@@ -238,6 +247,10 @@ impl Runtime {
         self.keyboard.as_ref().ok_or("G915 worker is not running")?.0.send(cmd).map_err(|e| e.to_string())
     }
 
+    pub fn microphone(&self, command: crate::microphone::Command) -> Result<(), String> {
+        self.microphone.as_ref().ok_or("Yeti GX worker is not running")?.0.send(command).map_err(|e| e.to_string())
+    }
+
     /// Flag that stops everything when set (e.g. from a Ctrl+C handler).
     pub fn shutdown_flag(&self) -> Arc<AtomicBool> {
         self.shutdown.clone()
@@ -265,6 +278,7 @@ impl Runtime {
             let _ = h.join();
         }
         if let Some((_, h)) = self.keyboard.take() { let _ = h.join(); }
+        if let Some((_, h)) = self.microphone.take() { let _ = h.join(); }
         platform::shutdown();
     }
 }

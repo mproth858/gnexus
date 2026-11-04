@@ -150,6 +150,18 @@ pub struct OutputVolume {
     pub muted: bool,
 }
 
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct CaptureLevel {
+    pub device: String,
+    pub peak: f32,
+    pub muted: bool,
+}
+
+pub fn capture_level(name: &str) -> PlatformResult<Option<CaptureLevel>> {
+    #[cfg(windows)] { windows::audio::capture_level(name) }
+    #[cfg(not(windows))] { let _ = name; Ok(None) }
+}
+
 /// Volume of the playback device whose name contains `name` (`None`: no such device).
 pub fn output_volume(name: &str) -> PlatformResult<Option<OutputVolume>> {
     #[cfg(windows)]

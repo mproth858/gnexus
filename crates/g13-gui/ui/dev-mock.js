@@ -46,7 +46,22 @@
     lighting_supported: true, brightness_supported: true, gkeys_supported: true, bank: "M1", held: 0, revision: 0,
     settings: { enabled: false, color: null, brightness: null, regular_enabled: false, regular_keys: {}, per_key_enabled: false, key_colors: {},
       profile: { name: "G915", banks: { M1: {}, M2: {}, M3: {} }, macros: {} } } };
+  let microphone = { present: !q.has("nomic"), connected: !q.has("nomic"), name: "Yeti GX", gain: q.has("nomic") ? null : 65,
+    muted: q.has("nomic") ? null : false, smart_lock: q.has("nomic") ? null : false, zones: q.has("nomic") ? [] : [{ id: 0, static_effect: 1 }, { id: 1, static_effect: 1 }],
+    settings: { colors: null }, lighting_active: false, input_supported: true, input: q.has("nomic") ? null : { device: "Microphone (Yeti GX)", peak: 0.25, muted: false }, revision: 0, error: false };
   const commands = {
+    set_microphone_control: ({ control, value }) => {
+      if (!microphone.connected) throw "Yeti GX is not connected";
+      if (control === "gain") microphone.gain = value;
+      if (control === "mute") microphone.muted = !!value;
+      if (control === "smart_lock") microphone.smart_lock = !!value;
+      microphone = { ...microphone, revision: microphone.revision + 1, message: "Yeti GX settings applied" };
+      setTimeout(() => emit({ type: "microphone", status: structuredClone(microphone) }), 30);
+    },
+    set_microphone_lighting: ({ settings }) => {
+      microphone = { ...microphone, settings: structuredClone(settings), lighting_active: settings.colors != null, revision: microphone.revision + 1, message: "Yeti GX settings applied" };
+      setTimeout(() => emit({ type: "microphone", status: structuredClone(microphone) }), 30);
+    },
     apply_keyboard: ({ settings }) => {
       keyboard = { ...keyboard, bank: settings.active_bank || "M1", settings: structuredClone(settings), regular_active: !!settings.regular_enabled && Object.keys(settings.regular_keys || {}).length > 0, message: "G915 settings saved", revision: keyboard.revision + 1 };
       setTimeout(() => emit({ type: "keyboard", status: keyboard }), 50);
@@ -61,7 +76,7 @@
       keyboard = { ...keyboard, regular_active: false, message: "Regular-key assignments paused. Apply to resume." };
       setTimeout(() => emit({ type: "keyboard", status: keyboard }), 20);
     },
-    get_status: () => ({ keyboard, connected: !location.hash.includes("offline"), bank: "M1", active_profile: "demo", recording: false, display_on: true, dry_run: true, error: null }),
+    get_status: () => ({ keyboard, microphone, connected: !location.hash.includes("offline"), bank: "M1", active_profile: "demo", recording: false, display_on: true, dry_run: true, error: null }),
     list_profiles: () => Object.entries(profiles).map(([id, p], i) => ({ id, number: i + 1, name: p.name, default: !!p.default, apps: p.rules.map((r) => r.exe || r.title), error: null })),
     set_preview: () => {},
     set_pinned: () => {},

@@ -1034,3 +1034,29 @@ The approved development-PC setup uses the official Libre Hardware Monitor
 readings were verified through the same probe used by the LCD. Repeated bridge
 writes use a valid `.previous` backup path because PowerShell 5.1 converts a null
 string argument to an empty path when calling File.Replace.
+
+
+## Yeti GX microphone
+
+`microphone/mod.rs` owns the Yeti GX 046d:0afc vendor HID collection (0xff43) on
+its own worker. `UiEvent::Microphone` feeds the native status cache and the new
+`ui/microphone.js` page. Tauri commands enqueue hardware controls or RGB settings;
+no audio/device work blocks the input engine. Root/field queries use the new
+`Link::call_short`, which shares the existing long-report reply matcher and
+notification queue. Existing mouse/keyboard callers keep their long reports.
+
+`microphone/protocol.rs` describes feature 0x8370's read/write fields from
+published firmware 2.00 captures. Audio controls are read back after writes;
+notifications cause another read because their value offset differs. No saved
+audio setting is replayed, especially unmute. RGB static effects are discovered
+per cluster at runtime; the mic's physical ring/logo mapping is pending testing.
+Only RGB persists in `microphone.json`, included in backups. G HUB gates writes
+and releases RGB ownership; shutdown/disconnect never changes audio mute/gain.
+
+Windows input level uses Core Audio's capture endpoint `IAudioMeterInformation`
+on the named Yeti GX input, with no captured/recorded audio buffers. The existing
+headset playback path still uses eRender; capture uses eCapture separately.
+The browser checks editing/confirmation, meter refresh without replacing color
+inputs, independent zone colors, muted-state preservation, missing hardware,
+and minimum-width layout. `yeti_gx_probe` provides a read-only hardware inventory
+for the first real-device validation, documented in [YETI_GX.md](YETI_GX.md).

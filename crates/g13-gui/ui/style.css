@@ -865,3 +865,21 @@ button.g915-cap:disabled { opacity: .4; cursor: default; }
 .kb-paint-footer { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 
 .g915-control-label { position: absolute; text-align: center; color: #cbd4de; font: 7px system-ui, sans-serif; white-space: nowrap; pointer-events: none; }
+
+/* Yeti GX: independent hardware controls and passive Windows input meter. */
+.microphone-page { display: none; padding: 26px 34px; }
+body.microphone-mode .microphone-page { display: block; }
+body.microphone-mode .stage, body.microphone-mode #scope-bar, body.microphone-mode .bottom,
+body.microphone-mode .profile-row, body.microphone-mode .mouse-page, body.microphone-mode .headset-page,
+body.microphone-mode .keyboard-page { display: none !important; }
+html.overlay body.microphone-mode .ov-profiles { display: none; }
+.microphone-page h1 { margin: 0; font-size: 32px; }
+.microphone-page p, #mic-mute-state { color: #aab3c3; }
+.microphone-page fieldset { border: 1px solid #394151; border-radius: 12px; padding: 22px; margin: 22px 0; }
+.mic-control, .mic-level { display: flex; align-items: center; gap: 16px; margin: 18px 0; flex-wrap: wrap; }
+.mic-level meter { flex: 1; min-width: 180px; height: 24px; }
+#mic-gain { flex: 1; min-width: 180px; }
+#mic-zones { display: flex; gap: 24px; flex-wrap: wrap; }
+#mic-zones label { display: flex; align-items: center; gap: 12px; margin: 14px 0; }
+#mic-feedback.error { color: #ff9292; }
+@media (max-width: 1100px) { .dev-tabs button { padding-left: 7px; padding-right: 7px; } .top { gap: 10px; } }

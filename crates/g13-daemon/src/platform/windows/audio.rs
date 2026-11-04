@@ -4,8 +4,8 @@
 //! ("Haut-parleurs (PRO X Wireless Gaming Headset)").
 
 use windows::Win32::Devices::FunctionDiscovery::PKEY_Device_FriendlyName;
-use windows::Win32::Media::Audio::Endpoints::IAudioEndpointVolume;
-use windows::Win32::Media::Audio::{DEVICE_STATE_ACTIVE, IMMDevice, IMMDeviceEnumerator, MMDeviceEnumerator, eRender};
+use windows::Win32::Media::Audio::Endpoints::{IAudioEndpointVolume, IAudioMeterInformation};
+use windows::Win32::Media::Audio::{DEVICE_STATE_ACTIVE, EDataFlow, IMMDevice, IMMDeviceEnumerator, MMDeviceEnumerator, eRender, eCapture};
 use windows::Win32::System::Com::StructuredStorage::PropVariantClear;
 use windows::Win32::System::Com::{CLSCTX_ALL, COINIT_MULTITHREADED, CoCreateInstance, CoInitializeEx, STGM_READ};
 use windows::Win32::System::Variant::VT_LPWSTR;
@@ -18,12 +18,16 @@ fn err(e: windows::core::Error) -> PlatformError {
 
 /// Active playback device whose name contains `name` (case-insensitive), with its name.
 fn find(name: &str) -> PlatformResult<Option<(IMMDevice, String)>> {
+    find_flow(name, eRender)
+}
+
+fn find_flow(name: &str, flow: EDataFlow) -> PlatformResult<Option<(IMMDevice, String)>> {
     let want = name.to_lowercase();
     // SAFETY: COM calls on this thread (initialised here; repeated calls are harmless).
     unsafe {
         let _ = CoInitializeEx(None, COINIT_MULTITHREADED);
         let en: IMMDeviceEnumerator = CoCreateInstance(&MMDeviceEnumerator, None, CLSCTX_ALL).map_err(err)?;
-        let all = en.EnumAudioEndpoints(eRender, DEVICE_STATE_ACTIVE).map_err(err)?;
+        let all = en.EnumAudioEndpoints(flow, DEVICE_STATE_ACTIVE).map_err(err)?;
         for i in 0..all.GetCount().map_err(err)? {
             let Ok(dev) = all.Item(i) else { continue };
             let Ok(store) = dev.OpenPropertyStore(STGM_READ) else { continue };
@@ -37,6 +41,21 @@ fn find(name: &str) -> PlatformResult<Option<(IMMDevice, String)>> {
         }
     }
     Ok(None)
+}
+
+/// Passive capture endpoint meter: no audio buffers are recorded or monitored
+/// through speakers. Software meters need an active shared-mode audio stream.
+pub fn capture_level(name: &str) -> PlatformResult<Option<crate::platform::CaptureLevel>> {
+    let Some((dev, device)) = find_flow(name, eCapture)? else { return Ok(None) };
+    // SAFETY: read-only activation/getters of the selected capture endpoint.
+    unsafe {
+        let meter: IAudioMeterInformation = dev.Activate(CLSCTX_ALL, None).map_err(err)?;
+        let peak = meter.GetPeakValue().map_err(err)?;
+        if !peak.is_finite() { return Err(PlatformError::Os("Microphone input meter returned an invalid level".into())); }
+        let volume = endpoint(&dev)?;
+        Ok(Some(crate::platform::CaptureLevel { device, peak: peak.clamp(0.0, 1.0),
+            muted: volume.GetMute().map_err(err)?.as_bool() }))
+    }
 }
 
 fn endpoint(dev: &IMMDevice) -> PlatformResult<IAudioEndpointVolume> {
