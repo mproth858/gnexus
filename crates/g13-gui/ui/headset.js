@@ -10,6 +10,7 @@
 
 /** Show the G13 ("g13"), the mouse ("mouse") or the headset ("headset"). */
 function showDevice(dev) {
+  if (dev !== "keyboard") Keyboard.editor?.abort();
   document.body.classList.toggle("keyboard-mode", dev === "keyboard");
   document.body.classList.toggle("mouse-mode", dev === "mouse");
   document.body.classList.toggle("headset-mode", dev === "headset");

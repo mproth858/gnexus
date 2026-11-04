@@ -403,6 +403,11 @@ fn record_start(state: State<AppState>) -> Result<(), String> {
 /// STOP: the capture as macro steps (`delays`: keep the real delays). The click on
 /// STOP is left out.
 #[tauri::command]
+fn record_status(state: State<AppState>) -> Option<usize> {
+    state.recorder.lock().unwrap().as_ref().and_then(|r| r.captured_count())
+}
+
+#[tauri::command]
 fn record_stop(state: State<AppState>, delays: bool) -> Result<Vec<String>, String> {
     let Some(r) = state.recorder.lock().unwrap().take() else { return Ok(Vec::new()) };
     let events = r.stop();
@@ -1451,6 +1456,7 @@ fn main() {
             export_mouse_profile,
             set_mouse_host,
             record_start,
+            record_status,
             macro_library,
             save_library_macro,
             delete_library_macro,

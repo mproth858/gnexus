@@ -43,7 +43,10 @@ class MacroEditor {
     this.o = o;
     this.sel = null;
     this.recording = false;
+    this.recordBusy = false;
+    this.captureCount = 0;
     o.list.addEventListener("click", async (e) => {
+      if (this.recording || this.recordBusy) return;
       if (e.target.closest("[data-act=add]")) { this.add(); this.render(); this.changed(t("Macro créée")); return; }
       const lib = e.target.closest(".macro-item.lib");
       if (lib && e.target.closest("[data-act=unlib]")) {
@@ -155,9 +158,15 @@ class MacroEditor {
       const sel = st.querySelector("select.arg");
       if (sel) sel.value = st.dataset.arg;
     }
+    ed.querySelectorAll("input, select, button").forEach((control) => {
+      control.disabled = this.recordBusy || (this.recording && control.dataset.act !== "record");
+    });
+    this.o.list.querySelectorAll("button").forEach((b) => { b.disabled = this.recording || this.recordBusy; });
+    this.renderCaptureCount();
   }
 
   onChange(e) {
+    if (this.recording || this.recordBusy) return;
     const all = this.macros;
     const m = all[this.sel];
     if (!m) return;
@@ -197,6 +206,7 @@ class MacroEditor {
     const row = e.target.closest(".step");
     const act = e.target.closest("[data-act]")?.dataset.act;
     if (act === "record") { this.toggleRecord(); return; }
+    if (this.recording || this.recordBusy) return;
     if (e.target.closest("[data-del]") && row) m.steps.splice(+row.dataset.i, 1);
     else if (e.target.closest("[data-up]") && row) {
       const i = +row.dataset.i;
@@ -215,30 +225,55 @@ class MacroEditor {
 
   /** RECORD / STOP. The click on STOP itself is left out of the macro. */
   async toggleRecord() {
+    if (this.recordBusy) return;
+    this.recordBusy = true;
+    this.o.recordingChanged?.();
     if (!this.recording) {
       try {
         await invoke("record_start");
+        this.recordTarget = this.macros[this.sel];
         this.recording = true;
-        this.render();
+        this.captureCount = 0;
+        this.captureTimer = setInterval(async () => {
+          try {
+            const count = await invoke("record_status");
+            if (this.recording && count != null) { this.captureCount = count; this.renderCaptureCount(); }
+          } catch (_) { /* Older/non-Windows backends still record without a live count. */ }
+        }, 200);
       } catch (e) { toast(t("Enregistrement impossible : {e}", { e }), true); }
+      this.recordBusy = false;
+      this.o.recordingChanged?.();
+      this.render();
       return;
     }
     this.recording = false;
+    clearInterval(this.captureTimer);
     try {
       const steps = await invoke("record_stop", { delays: !!MacroEditor.delays });
-      const m = this.macros[this.sel];
+      const m = this.recordTarget;
       if (m && steps.length) {
         m.steps = steps;
         this.changed(t("{n} étapes enregistrées", { n: steps.length }));
       } else if (!steps.length) toast(t("Rien n'a été enregistré"));
     } catch (e) { toast(String(e), true); }
+    this.recordTarget = null;
+    this.recordBusy = false;
+    this.o.recordingChanged?.();
     this.render();
+  }
+
+  renderCaptureCount() {
+    const live = this.o.edit.querySelector(".rec-live");
+    if (live && this.recording) live.textContent = t("{n} entrées capturées. Faites vos actions, puis STOP.", { n: this.captureCount });
   }
 
   /** Leaving the editor while recording: stop and drop the capture. */
   abort() {
     if (!this.recording) return;
     this.recording = false;
+    clearInterval(this.captureTimer);
+    this.recordTarget = null;
+    this.o.recordingChanged?.();
     invoke("record_stop", { delays: false }).catch(() => {});
   }
 }

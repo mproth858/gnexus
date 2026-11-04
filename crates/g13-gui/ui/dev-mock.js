@@ -55,6 +55,7 @@
     set_preview: () => {},
     set_pinned: () => {},
     record_start: () => console.log("[mock] record"),
+    record_status: () => 4,
     record_stop: () => ["down LeftCtrl", "wait 82", "down C", "wait 64", "up C", "wait 40", "up LeftCtrl", "wait 300", "mouse_down Right", "wait 120", "mouse_up Right"],
     detected_apps: () => ({
       running: [{ exe: "Notepad.exe", title: "Sans titre – Bloc-notes" }, { exe: "zen.exe", title: "Twitch — Zen Browser" }],

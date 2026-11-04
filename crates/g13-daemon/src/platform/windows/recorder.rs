@@ -1,6 +1,6 @@
 //! Macro recording with low-level hooks (`WH_KEYBOARD_LL`, `WH_MOUSE_LL`) on a
-//! thread of their own, with a message loop. Synthetic input (`SendInput`,
-//! G13 Studio's own keys and macros) is ignored, and so is pointer motion.
+//! thread of their own, with a message loop. G Nexus's tagged output is ignored;
+//! input forwarded by other software (e.g. remote sessions) is still captured.
 
 use std::sync::Mutex;
 use std::sync::mpsc;
@@ -10,8 +10,9 @@ use std::time::{Duration, Instant};
 use windows_sys::Win32::Foundation::{LPARAM, LRESULT, WPARAM};
 use windows_sys::Win32::System::LibraryLoader::GetModuleHandleW;
 use windows_sys::Win32::System::Threading::GetCurrentThreadId;
+use windows_sys::Win32::UI::Input::KeyboardAndMouse::{MapVirtualKeyW, MAPVK_VK_TO_VSC_EX};
 use windows_sys::Win32::UI::WindowsAndMessaging::{
-    CallNextHookEx, GetMessageW, KBDLLHOOKSTRUCT, LLKHF_EXTENDED, LLKHF_INJECTED, LLMHF_INJECTED, MSG,
+    CallNextHookEx, GetMessageW, KBDLLHOOKSTRUCT, LLKHF_EXTENDED, MSG, PeekMessageW, PM_NOREMOVE,
     MSLLHOOKSTRUCT, PostThreadMessageW, SetWindowsHookExW, UnhookWindowsHookEx, WH_KEYBOARD_LL, WH_MOUSE_LL,
     WM_KEYDOWN, WM_KEYUP, WM_LBUTTONDOWN, WM_LBUTTONUP, WM_MBUTTONDOWN, WM_MBUTTONUP, WM_MOUSEWHEEL, WM_QUIT,
     WM_RBUTTONDOWN, WM_RBUTTONUP, WM_SYSKEYDOWN, WM_SYSKEYUP, WM_XBUTTONDOWN, WM_XBUTTONUP,
@@ -41,8 +42,13 @@ fn push(e: Recorded) {
 
 /// Key code for a hooked key: its scan code (with the E0 flag), else its virtual key.
 fn key_of(k: &KBDLLHOOKSTRUCT) -> Option<KeyCode> {
-    let extended = k.flags & LLKHF_EXTENDED != 0;
-    let scan = k.scanCode as u16;
+    // Software-forwarded input may supply a virtual key without a scan code.
+    // Resolve it using the current Windows layout; keep physical scan codes intact.
+    let mapped = if k.scanCode == 0 {
+        unsafe { MapVirtualKeyW(k.vkCode, MAPVK_VK_TO_VSC_EX) }
+    } else { k.scanCode };
+    let extended = k.flags & LLKHF_EXTENDED != 0 || mapped & 0xFF00 == 0xE000;
+    let scan = (mapped & 0xFF) as u16;
     KeyCode::ALL
         .iter()
         .copied()
@@ -50,20 +56,21 @@ fn key_of(k: &KBDLLHOOKSTRUCT) -> Option<KeyCode> {
         .or_else(|| KeyCode::ALL.iter().copied().find(|c| matches!(c.win(), WinKey::Vk(v) if u32::from(v) == k.vkCode)))
 }
 
+fn record_key(k: &KBDLLHOOKSTRUCT, message: u32) -> Option<Recorded> {
+    if k.dwExtraInfo == super::injector::INJECT_TAG { return None; }
+    let down = match message {
+        WM_KEYDOWN | WM_SYSKEYDOWN => true,
+        WM_KEYUP | WM_SYSKEYUP => false,
+        _ => return None,
+    };
+    key_of(k).map(|key| Recorded::Key(key, down))
+}
+
 unsafe extern "system" fn keyboard(code: i32, wparam: WPARAM, lparam: LPARAM) -> LRESULT {
     if code >= 0 {
         // SAFETY: for WH_KEYBOARD_LL, lparam points to a KBDLLHOOKSTRUCT.
         let k = unsafe { &*(lparam as *const KBDLLHOOKSTRUCT) };
-        if k.flags & LLKHF_INJECTED == 0 {
-            let down = match wparam as u32 {
-                WM_KEYDOWN | WM_SYSKEYDOWN => Some(true),
-                WM_KEYUP | WM_SYSKEYUP => Some(false),
-                _ => None,
-            };
-            if let (Some(down), Some(key)) = (down, key_of(k)) {
-                push(Recorded::Key(key, down));
-            }
-        }
+        if let Some(event) = record_key(k, wparam as u32) { push(event); }
     }
     // SAFETY: passing the event on, as every hook must.
     unsafe { CallNextHookEx(std::ptr::null_mut(), code, wparam, lparam) }
@@ -73,7 +80,7 @@ unsafe extern "system" fn mouse(code: i32, wparam: WPARAM, lparam: LPARAM) -> LR
     if code >= 0 {
         // SAFETY: for WH_MOUSE_LL, lparam points to an MSLLHOOKSTRUCT.
         let m = unsafe { &*(lparam as *const MSLLHOOKSTRUCT) };
-        if m.flags & LLMHF_INJECTED == 0 {
+        if m.dwExtraInfo != super::injector::INJECT_TAG {
             let x = (m.mouseData >> 16) as u16;
             let xbutton = if x == 1 { MouseButton::Back } else { MouseButton::Forward };
             let e = match wparam as u32 {
@@ -123,8 +130,11 @@ pub fn start() -> PlatformResult<Box<dyn InputRecorder>> {
                 if kb.is_null() || ms.is_null() {
                     let _ = tx.send(Err("impossible d'écouter le clavier et la souris".into()));
                 } else {
-                    let _ = tx.send(Ok(GetCurrentThreadId()));
                     let mut msg: MSG = std::mem::zeroed();
+                    // Create the queue before announcing readiness, so an immediate
+                    // STOP can reliably post WM_QUIT to this thread.
+                    PeekMessageW(&mut msg, std::ptr::null_mut(), 0, 0, PM_NOREMOVE);
+                    let _ = tx.send(Ok(GetCurrentThreadId()));
                     while GetMessageW(&mut msg, std::ptr::null_mut(), 0, 0) > 0 {}
                 }
                 if !kb.is_null() {
@@ -151,6 +161,9 @@ pub fn start() -> PlatformResult<Box<dyn InputRecorder>> {
 }
 
 impl InputRecorder for HookRecorder {
+    fn captured_count(&self) -> Option<usize> {
+        CAPTURE.lock().ok().and_then(|c| c.as_ref().map(|c| c.events.len()))
+    }
     fn stop(mut self: Box<Self>) -> Vec<(Duration, Recorded)> {
         // SAFETY: plain Win32 call to a thread we started.
         unsafe {
@@ -160,5 +173,40 @@ impl InputRecorder for HookRecorder {
             let _ = t.join();
         }
         CAPTURE.lock().ok().and_then(|mut c| c.take()).map(|c| c.events).unwrap_or_default()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use windows_sys::Win32::UI::WindowsAndMessaging::LLKHF_INJECTED;
+
+    #[test]
+    fn ctrl_c_is_captured_when_forwarded_but_our_own_output_is_ignored() {
+        let mut ctrl: KBDLLHOOKSTRUCT = unsafe { std::mem::zeroed() };
+        ctrl.vkCode = 0xA2;
+        ctrl.scanCode = 0x1D;
+        let mut c: KBDLLHOOKSTRUCT = unsafe { std::mem::zeroed() };
+        c.vkCode = 0x43;
+        c.scanCode = 0x2E;
+        for flags in [0, LLKHF_INJECTED] {
+            ctrl.flags = flags;
+            c.flags = flags;
+            assert_eq!(record_key(&ctrl, WM_KEYDOWN), Some(Recorded::Key(KeyCode::LeftCtrl, true)));
+            assert_eq!(record_key(&c, WM_KEYDOWN), Some(Recorded::Key(KeyCode::C, true)));
+            assert_eq!(record_key(&c, WM_KEYUP), Some(Recorded::Key(KeyCode::C, false)));
+            assert_eq!(record_key(&ctrl, WM_KEYUP), Some(Recorded::Key(KeyCode::LeftCtrl, false)));
+        }
+        c.dwExtraInfo = super::super::injector::INJECT_TAG;
+        assert_eq!(record_key(&c, WM_KEYDOWN), None);
+        assert_eq!(record_key(&c, WM_KEYUP), None);
+    }
+
+    #[test]
+    fn forwarded_input_without_a_scan_code_is_resolved() {
+        let mut c: KBDLLHOOKSTRUCT = unsafe { std::mem::zeroed() };
+        c.vkCode = 0x43;
+        c.flags = LLKHF_INJECTED;
+        assert_eq!(record_key(&c, WM_KEYDOWN), Some(Recorded::Key(KeyCode::C, true)));
     }
 }

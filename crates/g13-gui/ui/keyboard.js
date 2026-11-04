@@ -13,6 +13,7 @@ const Keyboard = {
       get: () => this.draft?.profile.macros,
       set: (macros) => { this.draft.profile.macros = macros; },
       changed: () => this.changed(),
+      recordingChanged: () => this.renderButtons(),
       renamed: (old, name) => this.rebind(old, name),
       deleted: (name) => this.rebind(name, null),
     });
@@ -82,7 +83,7 @@ const Keyboard = {
       if (!status.error) this.dirty = false;
       toast(status.message || "G915 disconnected before settings were applied", status.error || !status.connected);
     }
-    if (!this.dirty) this.draft = structuredClone(status.settings);
+    if (!this.dirty && !this.editor.recording && !this.editor.recordBusy) this.draft = structuredClone(status.settings);
     this.draft.profile.macros ??= {};
     this.render();
   },
@@ -99,8 +100,9 @@ const Keyboard = {
 
   renderButtons() {
     $("#kb-controls").disabled = !this.status?.connected || this.saving;
-    $("#kb-save").disabled = !this.dirty || this.saving || !this.status?.connected;
-    $("#kb-reset").disabled = !this.dirty || this.saving;
+    const recording = this.editor.recording || this.editor.recordBusy;
+    $("#kb-save").disabled = recording || !this.dirty || this.saving || !this.status?.connected;
+    $("#kb-reset").disabled = recording || !this.dirty || this.saving;
     $("#kb-feedback").textContent = this.saving ? "Applying…" : this.dirty ? "Unsaved changes" : this.status?.message || "";
   },
 
@@ -117,7 +119,7 @@ const Keyboard = {
     $("#kb-lighting").disabled = !s?.lighting_supported && this.draft.color == null;
     $("#kb-brightness-on").disabled = !s?.brightness_supported && this.draft.brightness == null;
     // Do not replace the macro editor while the user is typing.
-    if (!this.dirty) {
+    if (!this.dirty && !this.editor.recording && !this.editor.recordBusy) {
       $("#kb-enabled").checked = this.draft.enabled;
       $("#kb-lighting").checked = this.draft.color != null;
       $("#kb-color").value = this.draft.color || "#1e56e4";

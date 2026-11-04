@@ -17,6 +17,7 @@ document.documentElement.classList.add(`os-${OS}`);
 
 // key → [en, de, it, es]
 const TR = {
+  "{n} entrées capturées. Faites vos actions, puis STOP.": ["{n} inputs captured. Perform your actions, then STOP.", "{n} Eingaben erfasst. Aktionen ausführen, dann STOP.", "{n} input acquisiti. Esegui le azioni, poi STOP.", "{n} entradas capturadas. Realiza tus acciones y pulsa STOP."],
   // ---- header, rails, status -------------------------------------------------------
   "Nouveau profil": ["New profile", "Neues Profil", "Nuovo profilo", "Nuevo perfil"],
   "Dupliquer le profil": ["Duplicate profile", "Profil duplizieren", "Duplica profilo", "Duplicar perfil"],

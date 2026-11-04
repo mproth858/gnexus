@@ -872,3 +872,9 @@ Les contrôles sont explicites, bloqués pendant que G HUB pilote l'appareil ;
 déconnexion, modification et arrêt relâchent les touches et arrêtent les macros.
 Voir [G915.md](G915.md) pour les fonctionnalités, limites et validations par
 transport. USB et Bluetooth restent à valider sur le matériel.
+
+Enregistrement G915 : le brouillon et la macro cible restent stables pendant
+la capture, même après un événement d'état. `record_status` fournit le compteur
+d'entrées Windows. Le filtre Windows écarte seulement les événements portant
+`INJECT_TAG`, pas toutes les entrées injectées par un autre logiciel. Les
+raccourcis transmis avec une touche virtuelle seule sont convertis en scan code.

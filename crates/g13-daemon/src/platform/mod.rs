@@ -229,6 +229,8 @@ pub fn set_output_eq(name: &str, gains: &[f32]) -> PlatformResult {
 /// A recording in progress (RECORD button): real keyboard and mouse input,
 /// not what G13 Studio itself injects.
 pub trait InputRecorder: Send {
+    /// Live event count when the backend supports it.
+    fn captured_count(&self) -> Option<usize> { None }
     /// Stop and return what was captured (time since the start, input).
     fn stop(self: Box<Self>) -> Vec<(std::time::Duration, crate::recording::Recorded)>;
 }

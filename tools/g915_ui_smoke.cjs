@@ -27,6 +27,23 @@ const { chromium } = require('playwright');
     assert.equal(await page.locator('#kb-save').isDisabled(), true);
     assert.equal(await page.evaluate(() => Keyboard.status.settings.profile.banks.M1.G1), 'A');
     assert.ok(await page.evaluate(() => Keyboard.status.settings.profile.macros['macro-1']));
+    // Record an already-saved macro while device status updates arrive.
+    await page.locator('#kb-macro-edit [data-act="record"]').click();
+    await page.waitForFunction(() => Keyboard.editor.recording && Keyboard.editor.captureCount === 4);
+    assert.match(await page.locator('#kb-macro-edit .rec-live').innerText(), /4 inputs captured/);
+    assert.equal(await page.locator('#kb-save').isDisabled(), true);
+    const targetSurvived = await page.evaluate(() => {
+      const target = Keyboard.editor.recordTarget;
+      Keyboard.update(structuredClone(Keyboard.status));
+      return Keyboard.draft.profile.macros['macro-1'] === target;
+    });
+    assert.equal(targetSurvived, true, 'status refresh must preserve the recording target');
+    await page.locator('#kb-macro-edit [data-act="record"]').click();
+    await page.waitForFunction(() => !Keyboard.editor.recording && !Keyboard.editor.recordBusy);
+    assert.deepEqual(await page.evaluate(() => Keyboard.draft.profile.macros['macro-1'].steps.slice(0, 3)), ['down LeftCtrl', 'wait 82', 'down C']);
+    assert.equal(await page.locator('#kb-save').isDisabled(), false);
+    await page.locator('#kb-save').click();
+    await page.waitForFunction(() => !Keyboard.saving);
     await page.locator('#kb-banks [data-bank="M2"]').click();
     assert.match(await page.locator('#kb-keys [data-key="G1"]').innerText(), /Unassigned/);
     await page.locator('#kb-lighting').uncheck();
@@ -39,6 +56,6 @@ const { chromium } = require('playwright');
     await page.locator('#keyboard-page').evaluate(n => n.scrollTop = 0);
     if (process.env.G915_SCREENSHOT) await page.screenshot({ path: process.env.G915_SCREENSHOT });
     assert.deepEqual(errors, []);
-    console.log('G915 UI: remapping, macros, save, reset, bank selection and navigation passed.');
+    console.log('G915 UI: recording, capture count, status refresh, remapping, macros, save, reset, banks and navigation passed.');
   } finally { await browser.close(); }
 })().catch(e => { console.error(e); process.exitCode = 1; });
