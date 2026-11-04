@@ -141,7 +141,7 @@ impl MediaProvider for MprisProvider {
 
     fn send(&mut self, cmd: MediaCommand) -> PlatformResult {
         let Some((name, _)) = self.pick()? else {
-            return Err(PlatformError::Os("aucun lecteur multimédia (MPRIS)".into()));
+            return Err(PlatformError::Os("No media player (MPRIS)".into()));
         };
         let method = match cmd {
             MediaCommand::PlayPause => "PlayPause",

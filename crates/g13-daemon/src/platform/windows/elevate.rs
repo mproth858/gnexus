@@ -26,7 +26,7 @@ pub fn run_elevated(exe: &Path, args: &str) -> PlatformResult<u32> {
         info.lpParameters = params.as_ptr();
         info.nShow = SW_HIDE;
         if ShellExecuteExW(&mut info) == 0 || info.hProcess.is_null() {
-            return Err(PlatformError::Os("autorisation administrateur refusée".into()));
+            return Err(PlatformError::Os("Administrator permission denied".into()));
         }
         WaitForSingleObject(info.hProcess, INFINITE);
         let mut code = 1u32;

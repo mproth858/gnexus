@@ -31,7 +31,7 @@ pub fn load(profiles_dir: &Path) -> Library {
 }
 
 pub fn save(profiles_dir: &Path, lib: &Library) -> Result<(), String> {
-    let p = path(profiles_dir).ok_or("aucun dossier de configuration")?;
+    let p = path(profiles_dir).ok_or("No configuration directory")?;
     let text = serde_json::to_string_pretty(lib).map_err(|e| e.to_string())?;
     fs::write(&p, text).map_err(|e| format!("{}: {e}", p.display()))
 }

@@ -4,7 +4,7 @@
 (() => {
   const profiles = {
     demo: {
-      name: "Démo", default: true, rules: [],
+      name: "Demo", default: true, rules: [],
       banks: {
         M1: { color: "#FF8000", G1: "Escape", G2: "1", G3: "2", G4: "3", G5: "4", G6: "5", G7: "6", G8: "Tab", G9: "Q",
           G10: "W", G11: "E", G12: "R", G13: "T", G14: "M", G15: "LeftShift", G16: "A", G17: "S", G18: "D", G19: "F",
@@ -18,18 +18,18 @@
         "autoclick-toggle": { mode: "toggle", steps: ["mouse_down Left", "wait 20", "mouse_up Left", "wait 80"] },
       },
     },
-    notepad: { name: "Bloc-notes", rules: [{ exe: "notepad.exe" }], banks: { M1: { color: "#0000FF", G1: "F5" }, M2: {}, M3: {} }, macros: {} },
+    notepad: { name: "Notepad", rules: [{ exe: "notepad.exe" }], banks: { M1: { color: "#0000FF", G1: "F5" }, M2: {}, M3: {} }, macros: {} },
   };
   const q = new URLSearchParams(location.search);
   let settings = { autostart: false, start_minimized: true, close_to_tray: true, overlay_key: "G25", profiles_dir: "C:\\Users\\…\\g13d\\config\\profiles",
-    language: q.get("lang"), keyboard_layout: q.get("kb") };
+    language: q.get("lang") || "en", keyboard_layout: q.get("kb") };
   const listeners = [];
   const emit = (payload) => listeners.filter((l) => l.name === "g13").forEach((l) => l.cb({ payload }));
   let headset = q.has("nohs") ? { present: false, connected: false } : { present: true, connected: !q.has("hsoff"), name: "PRO X Wireless",
     battery: 70, voltage_mv: 3958, charging: true, sidetone: 0, sleep_minutes: 10,
     volume: 96, muted: false, eq_installed: q.has("eq"),
-    eq_profiles: [{ name: "", apps: [], gains: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0] }, { name: "Jeux FPS", apps: ["cs2.exe"], gains: [-4, -3, -2, -1, 0, 2, 4, 5, 3, 0] }],
-    eq_active: 0, eq_default: 0, eq_pinned: null, audio_device: "Casque (2- Logitech PRO X Wireless Gaming Headset)",
+    eq_profiles: [{ name: "", apps: [], gains: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0] }, { name: "FPS games", apps: ["cs2.exe"], gains: [-4, -3, -2, -1, 0, 2, 4, 5, 3, 0] }],
+    eq_active: 0, eq_default: 0, eq_pinned: null, audio_device: "Headset (2- Logitech PRO X Wireless Gaming Headset)",
     equalizer: { freqs: [32, 64, 125, 250, 500, 1000, 2000, 4000, 8000, 16000], gains: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0], min_db: -12, max_db: 12 } };
   let mouse = q.has("nomouse") ? { connected: false } : {
     connected: true, name: "G502 X PLUS", battery: 93, charging: true, profile: 2, current_dpi: 1200,
@@ -69,7 +69,7 @@
     record_status: () => q.has("norecord") ? 0 : 4,
     record_stop: () => q.has("norecord") ? [] : ["down LeftCtrl", "wait 82", "down C", "wait 64", "up C", "wait 40", "up LeftCtrl", "wait 300", "mouse_down Right", "wait 120", "mouse_up Right"],
     detected_apps: () => ({
-      running: [{ exe: "Notepad.exe", title: "Sans titre – Bloc-notes" }, { exe: "zen.exe", title: "Twitch — Zen Browser" }],
+      running: [{ exe: "Notepad.exe", title: "Untitled – Notepad" }, { exe: "zen.exe", title: "Twitch — Zen Browser" }],
       recent: [{ exe: "wardogs.exe", title: "WARDOGS" }],
     }),
     assign_game: ({ id, exe }) => { profiles[id].rules.push({ exe }); },
@@ -132,7 +132,7 @@
     revert_mouse: () => console.log("[mock] revert"),
     set_mouse_soft_default: ({ index }) => { mouse = { ...mouse, soft_default: index }; emit({ type: "mouse", status: structuredClone(mouse) }); },
     pin_mouse_soft: ({ index }) => { mouse = { ...mouse, soft_pinned: index, soft_active: index ?? mouse.soft_default ?? 0 }; emit({ type: "mouse", status: structuredClone(mouse) }); },
-    macro_library: () => ({ "reload-fast": { mode: "once", steps: ["down R", "wait 20", "up R"] }, "spam-clic": { mode: "repeat_while_held", steps: ["mouse_down Left", "wait 30", "mouse_up Left", "wait 60"] } }),
+    macro_library: () => ({ "reload-fast": { mode: "once", steps: ["down R", "wait 20", "up R"] }, "click-spam": { mode: "repeat_while_held", steps: ["mouse_down Left", "wait 30", "mouse_up Left", "wait 60"] } }),
     save_library_macro: (a) => console.log("[mock] library +", a.name),
     delete_library_macro: (a) => console.log("[mock] library -", a.name),
     set_mouse_host: ({ on }) => {

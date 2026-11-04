@@ -26,7 +26,7 @@ pub struct ProfileSummary {
 /// Ids are file stems; only allow safe characters (no path traversal).
 fn file(dir: &Path, id: &str) -> Result<PathBuf, String> {
     let ok = !id.is_empty() && id.chars().all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_');
-    if ok { Ok(dir.join(format!("{id}.toml"))) } else { Err(format!("identifiant de profil invalide : {id:?}")) }
+    if ok { Ok(dir.join(format!("{id}.toml"))) } else { Err(format!("Invalid profile ID: {id:?}")) }
 }
 
 fn ids(dir: &Path) -> Vec<String> {
@@ -118,7 +118,7 @@ pub fn save(dir: &Path, id: &str, dto: &FileDto) -> Result<(), String> {
 pub fn create(dir: &Path, name: &str, from: Option<&str>) -> Result<String, String> {
     let name = name.trim();
     if name.is_empty() {
-        return Err("le nom ne peut pas être vide".into());
+        return Err("The name cannot be empty".into());
     }
     let mut dto = match from {
         Some(src) => load(dir, src)?,
@@ -170,7 +170,7 @@ pub fn create_from(dir: &Path, mut dto: FileDto) -> Result<String, String> {
 pub fn assign_app(dir: &Path, id: &str, exe: &str) -> Result<(), String> {
     let exe = exe.trim();
     if exe.is_empty() {
-        return Err("aucune application".into());
+        return Err("No application selected".into());
     }
     let same = |r: &g13_daemon::profiles::MatchRule| r.exe.as_deref().is_some_and(|e| e.eq_ignore_ascii_case(exe));
     for other in ids(dir).into_iter().filter(|o| o != id) {
@@ -190,7 +190,7 @@ pub fn assign_app(dir: &Path, id: &str, exe: &str) -> Result<(), String> {
 
 pub fn delete(dir: &Path, id: &str) -> Result<(), String> {
     if ids(dir).len() <= 1 {
-        return Err("impossible de supprimer le dernier profil".into());
+        return Err("The last profile cannot be deleted".into());
     }
     fs::remove_file(file(dir, id)?).map_err(|e| e.to_string())
 }

@@ -35,7 +35,7 @@ pub fn load() -> EqSettings {
 pub fn save_gains(gains: &[i8]) -> Result<EqSettings, String> {
     let mut s = load();
     if gains.len() != s.bands.len() {
-        return Err(format!("{} bandes attendues", s.bands.len()));
+        return Err(format!("Expected {} bands", s.bands.len()));
     }
     for (b, &g) in s.bands.iter_mut().zip(gains) {
         b.1 = f32::from(g).clamp(MIN_DB, MAX_DB);
@@ -44,7 +44,7 @@ pub fn save_gains(gains: &[i8]) -> Result<EqSettings, String> {
     if let Some(d) = path.parent() {
         let _ = std::fs::create_dir_all(d);
     }
-    std::fs::write(&path, s.to_bytes()).map_err(|e| format!("{} : {e} (installez l'égaliseur)", path.display()))?;
+    std::fs::write(&path, s.to_bytes()).map_err(|e| format!("{}: {e} (install the equalizer)", path.display()))?;
     #[cfg(target_os = "linux")]
     if let Err(e) = crate::platform::linux::eq::apply(&s) {
         log::warn!("equalizer: {e}");
@@ -58,7 +58,7 @@ pub fn save_gains(gains: &[i8]) -> Result<EqSettings, String> {
 pub fn install(name: &str) -> Result<(), String> {
     let target = crate::platform::linux::audio::node_name(name)
         .map_err(|e| e.detail())?
-        .ok_or_else(|| format!("sortie audio « {name} » introuvable"))?;
+        .ok_or_else(|| format!("Audio output '{name}' not found"))?;
     crate::platform::linux::eq::install(&load(), &target).map_err(|e| e.detail())
 }
 
@@ -146,7 +146,7 @@ impl EqProfiles {
     }
 
     pub fn save(&self) -> Result<(), String> {
-        let path = Self::path().ok_or("aucun dossier de configuration")?;
+        let path = Self::path().ok_or("No configuration directory")?;
         let text = serde_json::to_string_pretty(self).map_err(|e| e.to_string())?;
         std::fs::write(&path, text).map_err(|e| format!("{}: {e}", path.display()))
     }

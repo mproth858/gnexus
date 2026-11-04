@@ -1,7 +1,7 @@
 //! The few texts drawn by the Rust side (tray menu, file dialogs), in the
 //! interface language. The page tells which language it uses
 //! (`ui_language`); everything else is translated in `ui/i18n.js`.
-//! Error messages stay in French.
+//! Backend error messages use English.
 
 /// French text → [en, de, it, es].
 const TR: &[(&str, [&str; 4])] = &[
@@ -91,10 +91,11 @@ const TR: &[(&str, [&str; 4])] = &[
 
 pub const LANGS: [&str; 5] = ["fr", "en", "de", "it", "es"];
 
-/// `text` (French) in `lang`; French when unknown.
+/// `text` (French) in `lang`; English for an unknown language.
 pub fn tr(lang: &str, text: &'static str) -> &'static str {
-    let Some(i) = LANGS.iter().position(|l| *l == lang).filter(|&i| i > 0) else { return text };
-    TR.iter().find(|(fr, _)| *fr == text).map_or(text, |(_, t)| t[i - 1])
+    if lang == "fr" { return text; }
+    let i = LANGS.iter().position(|l| *l == lang).filter(|&i| i > 0).map_or(0, |i| i - 1);
+    TR.iter().find(|(fr, _)| *fr == text).map_or(text, |(_, t)| t[i])
 }
 
 #[cfg(test)]
@@ -102,10 +103,11 @@ mod tests {
     use super::*;
 
     #[test]
-    fn falls_back_to_french() {
+    fn translates_native_dialogs_and_falls_back_to_english() {
         assert_eq!(tr("de", "Quitter"), "Beenden");
         assert_eq!(tr("fr", "Quitter"), "Quitter");
-        assert_eq!(tr("xx", "Quitter"), "Quitter");
+        assert_eq!(tr("xx", "Quitter"), "Quit");
+        assert_eq!(tr("en", "Ouvrir G Nexus"), "Open G Nexus");
         assert_eq!(tr("en", "pas traduit"), "pas traduit");
     }
 }

@@ -968,3 +968,24 @@ Les commandes du haut sont visibles avec des légendes ; seuls les sélecteurs
 M prennent une nouvelle action. MR, liaison, Bluetooth, jeu et luminosité ne
 reçoivent aucune réaffectation supplémentaire. Les voyants M restent à couleur
 fixe : ils ne sont pas annoncés comme zones RGB.
+
+
+## English interface in this fork
+
+New preferences default to English; an explicitly selected language or the
+System language option is retained. The native tray starts in the saved language
+(or English before the web view reports its system-language selection). Unknown
+native languages and unsupported browser locales fall back to English.
+
+Existing translation keys remain compatible with the other interface languages.
+English covers static dialogs, device pages, assignment catalogs and language
+selector labels. Native validation, device status, transport, recording, audio,
+backup and profile import/export messages now use English. G13 LCD applets use
+English labels and abbreviated English dates that fit the display. The Windows
+installer and application metadata use English as well. Config paths, protocol
+IDs and user-created names retain their existing meanings.
+
+`tools/english_ui_smoke.cjs` checks startup/reload, all device pages, settings,
+assignment categories, macro panes and mouse controls for untranslated labels,
+including hidden dialogs and accessibility attributes. The G915 interaction
+smoke test continues to cover profile switching, mappings, lighting and capture.

@@ -198,13 +198,13 @@ pub struct LgsImport {
 
 /// Convert an LGS profile (XML text) into our file model.
 pub fn import(xml: &str) -> Result<LgsImport, ProfileError> {
-    let doc = roxmltree::Document::parse(xml).map_err(|e| ProfileError(format!("XML invalide : {e}")))?;
+    let doc = roxmltree::Document::parse(xml).map_err(|e| ProfileError(format!("Invalid XML: {e}")))?;
     let profile = doc
         .descendants()
         .find(|n| n.has_tag_name("profile") || n.tag_name().name() == "profile")
-        .ok_or_else(|| ProfileError("aucun <profile> dans ce fichier".into()))?;
+        .ok_or_else(|| ProfileError("No <profile> element in this file".into()))?;
     let mut skipped = Vec::new();
-    let mut dto = FileDto { name: profile.attribute("name").unwrap_or("Profil LGS").trim().to_string(), ..FileDto::default() };
+    let mut dto = FileDto { name: profile.attribute("name").unwrap_or("LGS profile").trim().to_string(), ..FileDto::default() };
 
     // executable → application rule (LGS points profiles without a game at LCore itself)
     if let Some(path) = child(profile, "target").and_then(|t| t.attribute("path")) {
@@ -255,7 +255,7 @@ pub fn import(xml: &str) -> Result<LgsImport, ProfileError> {
                 dto.banks.get_mut(bank).keys.insert(id, action.clone());
             }
             Some((name, Err(why))) => skipped.push(format!("{bank:?} {id} « {name} » : {why}")),
-            None => skipped.push(format!("{bank:?} {id} : macro introuvable dans le fichier")),
+            None => skipped.push(format!("{bank:?} {id}: macro not found in the file")),
         }
     }
 
@@ -302,10 +302,10 @@ fn convert_macro(body: Option<roxmltree::Node<'_, '_>>) -> Result<ActionDto, Str
             let mut keys = Vec::new();
             for k in body.children().filter(|c| c.tag_name().name() == "key") {
                 let v = k.attribute("value").unwrap_or("");
-                keys.push(lgs_to_key(v).ok_or_else(|| format!("touche LGS « {v} » inconnue"))?);
+                keys.push(lgs_to_key(v).ok_or_else(|| format!("Unknown LGS key: '{v}'"))?);
             }
             if keys.is_empty() {
-                return Err("frappe sans touche".into());
+                return Err("Keystroke without a key".into());
             }
             Ok(ActionDto::Chord(KeyChord::new(keys).to_string()))
         }
@@ -315,7 +315,7 @@ fn convert_macro(body: Option<roxmltree::Node<'_, '_>>) -> Result<ActionDto, Str
                 .iter()
                 .find(|(n, _)| n.eq_ignore_ascii_case(t))
                 .map(|(_, b)| ActionDto::Mouse { mouse: b.name().into() })
-                .ok_or_else(|| format!("fonction souris « {t} » non prise en charge"))
+                .ok_or_else(|| format!("Unsupported mouse function: '{t}'"))
         }
         "hotkeys" => {
             let t = task();
@@ -323,7 +323,7 @@ fn convert_macro(body: Option<roxmltree::Node<'_, '_>>) -> Result<ActionDto, Str
                 .iter()
                 .find(|(n, _)| n.eq_ignore_ascii_case(t))
                 .map(|(_, chord)| ActionDto::Chord((*chord).into()))
-                .ok_or_else(|| format!("raccourci « {t} » non importé (dépend de la disposition du clavier)"))
+                .ok_or_else(|| format!("Shortcut '{t}' was not imported (depends on the keyboard layout)"))
         }
         "function" => {
             let t = task().to_ascii_lowercase().replace(['_', ' '], "");
@@ -331,10 +331,10 @@ fn convert_macro(body: Option<roxmltree::Node<'_, '_>>) -> Result<ActionDto, Str
                 .iter()
                 .find(|(n, _)| t.contains(n))
                 .map(|(_, k)| ActionDto::Chord((*k).into()))
-                .ok_or_else(|| format!("fonction « {} » non prise en charge", task()))
+                .ok_or_else(|| format!("Unsupported function: '{}'", task()))
         }
-        "natural" => Err("fonction d'origine de la touche (sans équivalent)".into()),
-        other => Err(format!("macro de type « {other} » non prise en charge (séquence, texte ou script)")),
+        "natural" => Err("Original key function (no equivalent)".into()),
+        other => Err(format!("Unsupported macro type '{other}' (sequence, text or script)")),
     }
 }
 
@@ -374,11 +374,11 @@ fn guid(counter: &mut u64) -> String {
 fn export_action(a: &ActionDto) -> Result<(String, String), String> {
     match a {
         ActionDto::Chord(s) => {
-            let chord = KeyChord::parse(s).ok_or_else(|| format!("combinaison invalide « {s} »"))?;
+            let chord = KeyChord::parse(s).ok_or_else(|| format!("Invalid shortcut '{s}'"))?;
             let names = chord
                 .keys()
                 .iter()
-                .map(|k| key_to_lgs(*k).ok_or_else(|| format!("la touche « {k} » n'a pas d'équivalent LGS connu")))
+                .map(|k| key_to_lgs(*k).ok_or_else(|| format!("Key '{k}' has no known LGS equivalent")))
                 .collect::<Result<Vec<_>, _>>()?;
             let mut body = String::from(
                 "        <keystroke xmlns=\"http://www.logitech.com/Cassandra/2010.1/Macros/Keystroke\">\n",
@@ -390,7 +390,7 @@ fn export_action(a: &ActionDto) -> Result<(String, String), String> {
             Ok((chord.to_string(), body))
         }
         ActionDto::Mouse { mouse } => {
-            let b = MouseButton::parse(mouse).ok_or_else(|| format!("bouton « {mouse} » inconnu"))?;
+            let b = MouseButton::parse(mouse).ok_or_else(|| format!("Unknown button: '{mouse}'"))?;
             let (task, _) = MOUSE_TASKS.iter().find(|(_, mb)| *mb == b).expect("all buttons are listed");
             Ok((
                 mouse.clone(),
@@ -399,12 +399,12 @@ fn export_action(a: &ActionDto) -> Result<(String, String), String> {
                 ),
             ))
         }
-        ActionDto::Wheel { .. } => Err("la molette n'a pas d'équivalent LGS connu".into()),
-        ActionDto::Macro { name } => Err(format!("la macro « {name} » (séquence) n'est pas exportable vers LGS")),
-        ActionDto::Pad { pad } => Err(format!("le bouton de manette « {pad} » n'est pas exportable vers LGS")),
+        ActionDto::Wheel { .. } => Err("The wheel has no known LGS equivalent".into()),
+        ActionDto::Macro { name } => Err(format!("Macro '{name}' (sequence) cannot be exported to LGS")),
+        ActionDto::Pad { pad } => Err(format!("Gamepad button '{pad}' cannot be exported to LGS")),
         // LGS has one action per key: the tap one
         ActionDto::TapDance { tap: Some(tap), .. } => export_action(tap),
-        ActionDto::TapDance { .. } => Err("touche multi-actions sans appui court : pas d'équivalent LGS".into()),
+        ActionDto::TapDance { .. } => Err("Multi-action key without a tap action: no LGS equivalent".into()),
     }
 }
 

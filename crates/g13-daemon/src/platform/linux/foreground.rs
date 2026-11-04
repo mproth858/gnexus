@@ -190,7 +190,7 @@ fn start_kwin() -> Result<Tracker, String> {
         .and_then(|b| b.serve_at(OBJECT, FocusObject { state: state.clone() }))
         .and_then(|b| b.build())
         .map_err(|e| format!("D-Bus : {e}"))?;
-    let me = conn.unique_name().ok_or("D-Bus : pas de nom unique")?.to_string();
+    let me = conn.unique_name().ok_or("D-Bus: no unique name")?.to_string();
     let dir = std::env::var_os("XDG_RUNTIME_DIR").map_or_else(std::env::temp_dir, Into::into);
     let path = dir.join(format!("{PLUGIN}.js"));
     std::fs::write(&path, kwin_script(&me)).map_err(|e| format!("{} : {e}", path.display()))?;
@@ -203,7 +203,7 @@ fn start_kwin() -> Result<Tracker, String> {
         .call("loadScript", &(path.to_string_lossy().as_ref(), PLUGIN))
         .map_err(|e| format!("KWin loadScript : {e}"))?;
     if id < 0 {
-        return Err("KWin a refusé le script".into());
+        return Err("KWin rejected the script".into());
     }
     let script = zbus::blocking::Proxy::new(&conn, "org.kde.KWin", format!("/Scripting/Script{id}"), "org.kde.kwin.Script")
         .map_err(|e| format!("KWin : {e}"))?;

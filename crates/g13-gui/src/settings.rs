@@ -35,7 +35,7 @@ impl Default for Settings {
             close_to_tray: true,
             overlay_key: Some("G25".into()),
             overlay_position: "right".into(),
-            language: None,
+            language: Some("en".into()),
             keyboard_layout: None,
             auto_backup: "weekly".into(),
             auto_backup_keep: 10,
@@ -77,6 +77,9 @@ mod tests {
     fn older_files_get_the_default_overlay_key() {
         let s = Settings::parse(r#"{ "start_minimized": true, "close_to_tray": true }"#);
         assert_eq!(s.overlay_key.as_deref(), Some("G25"));
+        assert_eq!(s.language.as_deref(), Some("en"));
+        assert_eq!(Settings::parse(r#"{ "language": "de" }"#).language.as_deref(), Some("de"));
+        assert_eq!(Settings::parse(r#"{ "language": null }"#).language, None);
         let s = Settings::parse(r#"{ "overlay_key": null }"#);
         assert_eq!(s.overlay_key, None, "explicitly disabled stays disabled");
     }

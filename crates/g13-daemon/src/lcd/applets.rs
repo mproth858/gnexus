@@ -76,11 +76,11 @@ pub struct Status;
 
 impl Applet for Status {
     fn title(&self) -> &'static str {
-        "Profil"
+        "Profile"
     }
 
     fn keys(&self) -> [&'static str; 4] {
-        ["", "", "PROFILS", ""]
+        ["", "", "PROFILES", ""]
     }
 
     fn on_key(&mut self, index: usize, _ctx: &LcdContext<'_>) -> LcdAction {
@@ -88,7 +88,7 @@ impl Applet for Status {
     }
 
     fn render(&mut self, lcd: &mut G13LcdBuffer, ctx: &LcdContext<'_>) {
-        let left = if ctx.pinned.is_some() { "PROFIL - FIXE" } else { "PROFIL" };
+        let left = if ctx.pinned.is_some() { "PROFILE - PINNED" } else { "PROFILE" };
         header(lcd, left, &format!("MENU {}", ctx.bank));
         let name = ctx.profile_name;
         if G13LcdBuffer::text_width(name, 2) <= W - 4 {
@@ -98,9 +98,9 @@ impl Applet for Status {
         }
         // the game only when it is what selected this profile
         let foot = match ctx.game {
-            _ if ctx.pinned.is_some() => "Actif partout".to_string(),
+            _ if ctx.pinned.is_some() => "Active everywhere".to_string(),
             Some(g) if ctx.game_matched && !g.is_empty() => g.to_string(),
-            _ if ctx.profile_default => "Profil par défaut".to_string(),
+            _ if ctx.profile_default => "Default profile".to_string(),
             _ => String::new(),
         };
         marquee(lcd, 2, 26, W - 4, &foot, ctx.frame);
@@ -125,11 +125,11 @@ impl Profiles {
 
 impl Applet for Profiles {
     fn title(&self) -> &'static str {
-        "Profils"
+        "Profiles"
     }
 
     fn keys(&self) -> [&'static str; 4] {
-        ["HAUT", "BAS", "OK", ""]
+        ["UP", "DOWN", "OK", ""]
     }
 
     fn on_show(&mut self, ctx: &LcdContext<'_>) {
@@ -155,7 +155,7 @@ impl Applet for Profiles {
     }
 
     fn render(&mut self, lcd: &mut G13LcdBuffer, ctx: &LcdContext<'_>) {
-        header(lcd, "PROFILS", if ctx.pinned.is_some() { "FIXE" } else { "AUTO" });
+        header(lcd, "PROFILES", if ctx.pinned.is_some() { "PINNED" } else { "AUTO" });
         let rows = Self::rows(ctx);
         self.cursor = self.cursor.min(rows.len().saturating_sub(1));
         // 3 visible rows, scrolled so the cursor stays visible
@@ -167,7 +167,7 @@ impl Applet for Profiles {
                 Some(id) => ctx.pinned == Some(id.as_str()),
             };
             let label = match row {
-                None => "Auto (selon le jeu)".to_string(),
+                None => "Auto (by game)".to_string(),
                 Some(id) => {
                     let n = ctx.profiles.iter().position(|p| &p.id == id).map_or(0, |n| n + 1);
                     let name = ctx.profiles.iter().find(|p| &p.id == id).map_or(id.as_str(), |p| p.name.as_str());
@@ -190,7 +190,7 @@ pub struct Media;
 
 impl Applet for Media {
     fn title(&self) -> &'static str {
-        "Média"
+        "Media"
     }
 
     fn keys(&self) -> [&'static str; 4] {
@@ -213,13 +213,13 @@ impl Applet for Media {
     fn render(&mut self, lcd: &mut G13LcdBuffer, ctx: &LcdContext<'_>) {
         let Some(m) = &ctx.media else {
             header(lcd, "MEDIA", "");
-            centered(lcd, 18, "Aucun média en cours", 1);
+            centered(lcd, 18, "No media playing", 1);
             return;
         };
         let state = match m.status {
-            PlaybackStatus::Playing => "> LECTURE",
-            PlaybackStatus::Paused => "|| PAUSE",
-            PlaybackStatus::Stopped => "[] ARRET",
+            PlaybackStatus::Playing => "> PLAYING",
+            PlaybackStatus::Paused => "|| PAUSED",
+            PlaybackStatus::Stopped => "[] STOPPED",
         };
         let source = m.source.as_deref().map(short_source).unwrap_or_default();
         header(lcd, state, &source);
@@ -252,15 +252,15 @@ fn short_source(s: &str) -> String {
 
 pub struct Clock;
 
-const DAYS: [&str; 7] = ["lundi", "mardi", "mercredi", "jeudi", "vendredi", "samedi", "dimanche"];
+const DAYS: [&str; 7] = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
 const MONTHS: [&str; 12] = [
-    "janvier", "février", "mars", "avril", "mai", "juin", "juillet", "août", "septembre", "octobre", "novembre",
-    "décembre",
+    "January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November",
+    "December",
 ];
 
 impl Applet for Clock {
     fn title(&self) -> &'static str {
-        "Horloge"
+        "Clock"
     }
 
     fn render(&mut self, lcd: &mut G13LcdBuffer, ctx: &LcdContext<'_>) {
@@ -272,9 +272,9 @@ impl Applet for Clock {
         lcd.draw_text(x + w + 4, 24, &format!("{:02}", t.second()));
         let date = format!(
             "{} {} {} {}",
-            DAYS[t.weekday().num_days_from_monday() as usize],
+            &DAYS[t.weekday().num_days_from_monday() as usize][..3],
             t.day(),
-            MONTHS[t.month0() as usize],
+            &MONTHS[t.month0() as usize][..3],
             t.year()
         );
         centered(lcd, LCD_HEIGHT - 8, &date, 1);
@@ -287,7 +287,7 @@ pub struct SystemMon;
 
 impl Applet for SystemMon {
     fn title(&self) -> &'static str {
-        "Système"
+        "System"
     }
 
     fn render(&mut self, lcd: &mut G13LcdBuffer, ctx: &LcdContext<'_>) {
@@ -295,11 +295,11 @@ impl Applet for SystemMon {
         let gb = |b: u64| b as f64 / 1_073_741_824.0;
         // the mouse battery when there is one, else the memory in GB
         let right = match ctx.mouse_battery {
-            Some((pct, charging)) => format!("SOURIS {pct}%{}", if charging { "+" } else { "" }),
-            None if s.mem_total > 0 => format!("{:.1}/{:.0} Go", gb(s.mem_used), gb(s.mem_total)),
+            Some((pct, charging)) => format!("MOUSE {pct}%{}", if charging { "+" } else { "" }),
+            None if s.mem_total > 0 => format!("{:.1}/{:.0} GB", gb(s.mem_used), gb(s.mem_total)),
             None => String::new(),
         };
-        header(lcd, "SYSTEME", &right);
+        header(lcd, "SYSTEM", &right);
         lcd.draw_text(2, 14, "CPU");
         lcd.draw_bar(24, 13, 100, 9, s.cpu / 100.0);
         lcd.draw_text(130, 14, &format!("{:>3.0}%", s.cpu));

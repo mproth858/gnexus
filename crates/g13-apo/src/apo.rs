@@ -97,7 +97,7 @@ impl Core {
             while !shared.stop.load(Ordering::Relaxed) {
                 if !told && shared.processing.load(Ordering::Relaxed) {
                     told = true;
-                    crate::log("le son passe par l'effet (APOProcess)");
+                    crate::log("Audio is passing through the effect (APOProcess)");
                 }
                 let modified = std::fs::metadata(&path).and_then(|m| m.modified()).ok();
                 if first || modified != last {
@@ -105,8 +105,8 @@ impl Core {
                     last = modified;
                     let s = std::fs::read(&path).ok().and_then(|b| EqSettings::from_bytes(&b));
                     crate::log(&match &s {
-                        Some(s) => format!("réglages lus : gains {:?}", s.bands.iter().map(|b| b.1).collect::<Vec<_>>()),
-                        None => format!("réglages absents ou invalides : {}", path.display()),
+                        Some(s) => format!("Settings loaded: gains {:?}", s.bands.iter().map(|b| b.1).collect::<Vec<_>>()),
+                        None => format!("Missing or invalid settings: {}", path.display()),
                     });
                     if let Ok(mut g) = shared.settings.lock() {
                         *g = s;
@@ -167,7 +167,7 @@ impl Core {
             let init = unsafe { &*(data as *const APOInitSystemEffects2) };
             init.InitializeForDiscoveryOnly.as_bool()
         };
-        crate::log(&format!("Initialize ({size} octets){}", if discovery { ", découverte seulement" } else { "" }));
+        crate::log(&format!("Initialize ({size} octets){}", if discovery { ", discovery only" } else { "" }));
         if !discovery {
             self.start_watcher();
         }
@@ -229,7 +229,7 @@ impl Core {
 
 impl Drop for Core {
     fn drop(&mut self) {
-        crate::log("objet libéré");
+        crate::log("Object released");
         self.shared.stop.store(true, Ordering::Relaxed);
         if let Some(h) = self.watcher.get_mut().ok().and_then(Option::take) {
             let _ = h.join();
@@ -418,7 +418,7 @@ unsafe extern "system" fn apo_format(_this: *mut c_void, _opposite: *mut c_void,
         *out = std::ptr::null_mut();
         let Some(t) = IAudioMediaType::from_raw_borrowed(&requested) else { return E_POINTER };
         let f = float_format(t);
-        crate::log(&format!("format proposé : {f:?}"));
+        crate::log(&format!("Proposed format: {f:?}"));
         match f {
             Some((ch, _)) if (1..=MAX_CHANNELS).contains(&ch) => {
                 *out = t.clone().into_raw();
@@ -572,7 +572,7 @@ impl IClassFactory_Impl for Factory_Impl {
         crate::log(&format!(
             "CreateInstance {:?}{} → 0x{:08X}",
             unsafe { riid.as_ref() },
-            if outer_raw.is_null() { "" } else { " (agrégé)" },
+            if outer_raw.is_null() { "" } else { " (aggregated)" },
             hr.0 as u32
         ));
         hr.ok()

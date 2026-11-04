@@ -33,15 +33,15 @@ impl Link {
     /// Send a request and wait for its own answer (other programs' replies are skipped).
     pub fn call(&self, feature_index: u8, function: u8, params: &[u8]) -> Result<[u8; 16], String> {
         let req = Request::new(self.index, feature_index, function, params).with_sw_id(self.sw_id);
-        self.dev.write(&req.to_bytes()).map_err(|e| format!("écriture : {e}"))?;
+        self.dev.write(&req.to_bytes()).map_err(|e| format!("Write failed: {e}"))?;
         let deadline = Instant::now() + self.timeout;
         let mut buf = [0u8; 64];
         loop {
             let left = deadline.saturating_duration_since(Instant::now());
             if left.is_zero() {
-                return Err("pas de réponse".into());
+                return Err("No response".into());
             }
-            let n = self.dev.read_timeout(&mut buf, left.as_millis().max(1) as i32).map_err(|e| format!("lecture : {e}"))?;
+            let n = self.dev.read_timeout(&mut buf, left.as_millis().max(1) as i32).map_err(|e| format!("Read failed: {e}"))?;
             let Some(msg) = (n > 0).then(|| Message::parse(&buf[..n])).flatten() else { continue };
             self.keep_event(&msg);
             if !req.matches(&msg) {
@@ -49,8 +49,8 @@ impl Link {
             }
             return match msg {
                 Message::Reply { data, .. } => Ok(data),
-                Message::Error { code, .. } => Err(format!("erreur HID++ {code:?}")),
-                Message::Error10 { code, .. } => Err(format!("erreur HID++ 1.0 (0x{code:02X})")),
+                Message::Error { code, .. } => Err(format!("HID++ error: {code:?}")),
+                Message::Error10 { code, .. } => Err(format!("HID++ 1.0 error (0x{code:02X})")),
                 Message::Other { .. } => continue,
             };
         }
@@ -114,7 +114,7 @@ impl Link {
     /// and compare. Factory sectors (0x0100+) are refused.
     pub fn write_sector(&self, oi: u8, sector: u16, data: &[u8]) -> Result<(), String> {
         if sector >= 0x0100 {
-            return Err("secteur d'usine : écriture refusée".into());
+            return Err("Factory sector: write refused".into());
         }
         let len = data.len() as u16;
         self.call(oi, 6, &[(sector >> 8) as u8, sector as u8, 0, 0, (len >> 8) as u8, len as u8])?;
@@ -124,7 +124,7 @@ impl Link {
         self.call(oi, 8, &[])?;
         let back = self.read_sector(oi, sector, len)?;
         if back != data {
-            return Err(format!("secteur 0x{sector:04X} : la relecture ne correspond pas"));
+            return Err(format!("Sector 0x{sector:04X}: readback does not match"));
         }
         Ok(())
     }
@@ -153,7 +153,7 @@ pub fn find_mice(api: &HidApi) -> Vec<Mouse> {
                 link.feature(f::ONBOARD_PROFILES).is_some() && link.feature(f::ADJUSTABLE_DPI).is_some()
             };
             if is_mouse {
-                let name = link.name().unwrap_or_else(|| "souris".into());
+                let name = link.name().unwrap_or_else(|| "Mouse".into());
                 out.push(Mouse { link, name, product_id: info.product_id() });
                 break;
             }

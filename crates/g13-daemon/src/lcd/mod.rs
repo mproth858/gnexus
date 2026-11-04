@@ -267,7 +267,7 @@ impl LcdManager {
         }
         self.next = now + FRAME;
         self.frame += 1;
-        if self.applets[self.current].title() == "Système" && now >= self.sys_next {
+        if self.applets[self.current].title() == "System" && now >= self.sys_next {
             self.sys_next = now + Duration::from_secs(1);
             self.sys.refresh_cpu_usage();
             self.sys.refresh_memory_specifics(MemoryRefreshKind::nothing().with_ram());

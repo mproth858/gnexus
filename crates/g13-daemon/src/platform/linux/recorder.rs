@@ -84,11 +84,11 @@ pub fn start() -> PlatformResult<Box<dyn InputRecorder>> {
             .map(|d| d.flatten().filter(|e| e.file_name().to_string_lossy().starts_with("event")).count() > opened)
             .unwrap_or(true);
         let hint = if no_access {
-            "aucun accès à /dev/input : installez deploy/linux/71-gnexus-record.rules"
+            "No access to /dev/input: install deploy/linux/71-gnexus-record.rules"
         } else {
-            "aucun clavier ni souris trouvé"
+            "No keyboard or mouse found"
         };
-        return Err(PlatformError::Os(format!("enregistrement impossible : {hint}")));
+        return Err(PlatformError::Os(format!("Could not record input: {hint}")));
     }
     let start = SystemTime::now();
     let stop = Arc::new(AtomicBool::new(false));

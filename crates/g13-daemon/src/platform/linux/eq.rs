@@ -67,8 +67,8 @@ pub fn config(s: &EqSettings, target: &str) -> String {
 context.modules = [
   {{ name = libpipewire-module-filter-chain
     args = {{
-      node.description = "G Nexus — égaliseur"
-      media.name       = "G Nexus — égaliseur"
+      node.description = "G Nexus — equalizer"
+      media.name       = "G Nexus — equalizer"
       filter.graph = {{
         nodes = [
 {nodes}        ]
@@ -115,7 +115,7 @@ fn run(cmd: &str, args: &[&str]) -> PlatformResult {
 }
 
 fn write(s: &EqSettings, target: &str) -> PlatformResult {
-    let path = conf_path().ok_or_else(|| PlatformError::Os("pas de dossier personnel".into()))?;
+    let path = conf_path().ok_or_else(|| PlatformError::Os("No home directory".into()))?;
     if let Some(dir) = path.parent() {
         std::fs::create_dir_all(dir).map_err(|e| PlatformError::Os(format!("{} : {e}", dir.display())))?;
     }

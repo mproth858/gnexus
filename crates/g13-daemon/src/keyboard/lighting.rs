@@ -76,7 +76,7 @@ pub fn write_frame(link: &Link, feature: u8, frame: &[(u8, [u8; 3])]) -> Result<
         for retry in 0..=3 {
             match link.call(feature, function, params) {
                 Ok(_) => return Ok(()),
-                Err(error) if (error.contains("Busy") || error.contains("pas de réponse")) && retry < 3 => {
+                Err(error) if (error.contains("Busy") || error.contains("No response")) && retry < 3 => {
                     last = Some(error);
                     std::thread::sleep(std::time::Duration::from_millis(30 * (retry + 1)));
                 }

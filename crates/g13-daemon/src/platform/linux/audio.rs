@@ -96,7 +96,7 @@ pub fn output_volume(name: &str) -> PlatformResult<Option<OutputVolume>> {
 
 /// Set the volume (0..100) and / or the mute of that device.
 pub fn set_output_volume(name: &str, volume: Option<u8>, mute: Option<bool>) -> PlatformResult {
-    let sink = find(name)?.ok_or_else(|| PlatformError::Os(format!("sortie audio « {name} » introuvable")))?;
+    let sink = find(name)?.ok_or_else(|| PlatformError::Os(format!("Audio output '{name}' not found")))?;
     if let Some(v) = volume {
         pactl(&["set-sink-volume", &sink.name, &format!("{}%", v.min(100))])?;
     }

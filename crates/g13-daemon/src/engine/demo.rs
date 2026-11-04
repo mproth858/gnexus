@@ -87,5 +87,5 @@ pub fn demo_profile() -> Profile {
         .with(K::G2, Action::Macro(click("autoclick-toggle", MacroMode::Toggle)))
         .with(K::G3, Action::Macro(click("single-click", MacroMode::Once)));
 
-    Profile { name: "Démo".into(), banks: [m1, m2, m3], ..Profile::default() }
+    Profile { name: "Demo".into(), banks: [m1, m2, m3], ..Profile::default() }
 }

@@ -150,7 +150,7 @@ udevadm settle --timeout=10 || true
 /// asked once by polkit (`pkexec`). `record`: also allow macro recording (RECORD).
 pub fn install(record: bool) -> Result<InstallResult, String> {
     if in_container() {
-        return Err("G Nexus tourne dans un conteneur : les règles n'atteindraient pas le système".into());
+        return Err("G Nexus is running in a container: the rules would not reach the host system".into());
     }
     let before = status();
     let out = Command::new("pkexec")
@@ -160,14 +160,14 @@ pub fn install(record: bool) -> Result<InstallResult, String> {
         .env("PATH", "/usr/sbin:/usr/bin:/sbin:/bin")
         .envs(std::env::vars().filter(|(k, _)| matches!(k.as_str(), "DISPLAY" | "WAYLAND_DISPLAY" | "XAUTHORITY" | "XDG_RUNTIME_DIR" | "DBUS_SESSION_BUS_ADDRESS" | "LANG" | "LC_ALL")))
         .output()
-        .map_err(|e| format!("pkexec introuvable ({e}) : installez les règles à la main (deploy/linux/README.md)"))?;
+        .map_err(|e| format!("pkexec was not found ({e}): install the rules manually (deploy/linux/README.md)"))?;
     match out.status.code() {
         Some(0) => {}
         // dialog closed, or wrong password three times
-        Some(126) | Some(127) => return Err("autorisation refusée ou annulée".into()),
+        Some(126) | Some(127) => return Err("Permission denied or canceled".into()),
         _ => {
             let msg = String::from_utf8_lossy(&out.stderr);
-            return Err(format!("échec de l'installation : {}", msg.trim()));
+            return Err(format!("Installation failed: {}", msg.trim()));
         }
     }
     // ACLs are applied by udev a moment after the trigger

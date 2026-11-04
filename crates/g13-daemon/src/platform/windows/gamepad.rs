@@ -13,7 +13,7 @@ use crate::platform::{GamepadState, PlatformError, PlatformResult};
 fn err(e: vigem_client::Error) -> PlatformError {
     match e {
         vigem_client::Error::BusNotFound => {
-            PlatformError::Os("pilote ViGEmBus introuvable (à installer pour le mode manette)".into())
+            PlatformError::Os("ViGEmBus driver not found (required for gamepad mode)".into())
         }
         other => PlatformError::Os(format!("ViGEmBus : {other}")),
     }

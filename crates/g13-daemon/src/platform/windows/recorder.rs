@@ -115,7 +115,7 @@ pub fn start() -> PlatformResult<Box<dyn InputRecorder>> {
     {
         let mut c = CAPTURE.lock().map_err(|_| PlatformError::Os("enregistrement : verrou".into()))?;
         if c.is_some() {
-            return Err(PlatformError::Os("un enregistrement est déjà en cours".into()));
+            return Err(PlatformError::Os("A recording is already in progress".into()));
         }
         *c = Some(Capture { start: Instant::now(), events: Vec::new() });
     }
@@ -130,7 +130,7 @@ pub fn start() -> PlatformResult<Box<dyn InputRecorder>> {
                 let kb = SetWindowsHookExW(WH_KEYBOARD_LL, Some(keyboard), module, 0);
                 let ms = SetWindowsHookExW(WH_MOUSE_LL, Some(mouse), module, 0);
                 if kb.is_null() || ms.is_null() {
-                    let _ = tx.send(Err("impossible d'écouter le clavier et la souris".into()));
+                    let _ = tx.send(Err("Could not capture keyboard and mouse input".into()));
                 } else {
                     let mut msg: MSG = std::mem::zeroed();
                     // Create the queue before announcing readiness, so an immediate
@@ -156,7 +156,7 @@ pub fn start() -> PlatformResult<Box<dyn InputRecorder>> {
             }
             Err(PlatformError::Os(match other {
                 Ok(Err(e)) => e,
-                _ => "l'écoute du clavier n'a pas démarré".into(),
+                _ => "Keyboard input capture did not start".into(),
             }))
         }
     }

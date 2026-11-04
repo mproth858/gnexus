@@ -87,37 +87,37 @@ impl Headset {
 
     /// Voltage (mV) and charging.
     pub fn battery(&self) -> Result<(u16, bool), String> {
-        let i = self.adc.ok_or("pas de mesure de batterie")?;
+        let i = self.adc.ok_or("Battery measurement unavailable")?;
         let d = self.link.call(i, 0, &[])?;
         Ok((u16::from_be_bytes([d[0], d[1]]), d[2] == 3))
     }
 
     pub fn sidetone(&self) -> Result<u8, String> {
-        let i = self.sidetone.ok_or("pas de retour micro")?;
+        let i = self.sidetone.ok_or("Sidetone unavailable")?;
         Ok(self.link.call(i, 0, &[])?[0])
     }
 
     /// Set the sidetone and read it back.
     pub fn set_sidetone(&self, level: u8) -> Result<u8, String> {
-        let i = self.sidetone.ok_or("pas de retour micro")?;
+        let i = self.sidetone.ok_or("Sidetone unavailable")?;
         self.link.call(i, 1, &[level.min(100)])?;
         self.sidetone()
     }
 
     pub fn sleep_minutes(&self) -> Result<u8, String> {
-        let i = self.adc.ok_or("pas de mise en veille")?;
+        let i = self.adc.ok_or("Sleep control unavailable")?;
         Ok(self.link.call(i, 1, &[])?[0])
     }
 
     /// Set the power-off delay and read it back.
     pub fn set_sleep_minutes(&self, minutes: u8) -> Result<u8, String> {
-        let i = self.adc.ok_or("pas de mise en veille")?;
+        let i = self.adc.ok_or("Sleep control unavailable")?;
         self.link.call(i, 2, &[minutes])?;
         self.sleep_minutes()
     }
 
     pub fn equalizer(&self) -> Result<Equalizer, String> {
-        let i = self.eq.ok_or("pas d'égaliseur")?;
+        let i = self.eq.ok_or("Equalizer unavailable")?;
         let info = self.link.call(i, 0, &[])?;
         let count = usize::from(info[0]).min(16);
         let range = info[1] as i8;
@@ -142,10 +142,10 @@ impl Headset {
 
     /// Set every band's gain (clamped to the headset's range), then read the equalizer back.
     pub fn set_equalizer(&self, gains: &[i8]) -> Result<Equalizer, String> {
-        let i = self.eq.ok_or("pas d'égaliseur")?;
+        let i = self.eq.ok_or("Equalizer unavailable")?;
         let cur = self.equalizer()?;
         if gains.len() != cur.gains.len() {
-            return Err(format!("{} bandes attendues", cur.gains.len()));
+            return Err(format!("Expected {} bands", cur.gains.len()));
         }
         let mut params = vec![0x02];
         params.extend(gains.iter().map(|&g| g.clamp(cur.min_db, cur.max_db) as u8));
@@ -180,7 +180,7 @@ pub fn find_headsets(api: &HidApi) -> Vec<Headset> {
 pub fn product_name(product_id: u16) -> &'static str {
     match product_id {
         0x0ABA => "PRO X Wireless",
-        _ => "Casque Logitech",
+        _ => "Logitech headset",
     }
 }
 

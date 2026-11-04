@@ -118,24 +118,24 @@ pub fn button_of(a: Option<&MouseAction>) -> Result<Button, String> {
     Ok(match a {
         MouseAction::Macro { name } => {
             return Err(format!(
-                "macro « {name} » : les macros ne marchent qu'en temps réel (profils intégrés désactivés)"
+                "Macro '{name}': macros require real-time mode (onboard profiles disabled)"
             ));
         }
         MouseAction::Mouse { mouse } => {
-            let m = MOUSE_BUTTONS.iter().find(|(n, _)| n.eq_ignore_ascii_case(mouse)).ok_or_else(|| format!("bouton de souris inconnu : {mouse}"))?;
+            let m = MOUSE_BUTTONS.iter().find(|(n, _)| n.eq_ignore_ascii_case(mouse)).ok_or_else(|| format!("Unknown mouse button: {mouse}"))?;
             Button::Mouse(m.1)
         }
         MouseAction::Special { special } => {
-            let s = SPECIALS.iter().find(|(n, _)| n == special).ok_or_else(|| format!("fonction inconnue : {special}"))?;
+            let s = SPECIALS.iter().find(|(n, _)| n == special).ok_or_else(|| format!("Unknown function: {special}"))?;
             Button::Special(s.1)
         }
         MouseAction::Raw { raw } => {
             let v: Vec<u8> = raw.split_whitespace().filter_map(|x| u8::from_str_radix(x, 16).ok()).collect();
-            let b: [u8; 4] = v.try_into().map_err(|_| format!("valeur brute invalide : {raw}"))?;
+            let b: [u8; 4] = v.try_into().map_err(|_| format!("Invalid raw value: {raw}"))?;
             Button::parse(b)
         }
         MouseAction::Key(s) => {
-            let chord = KeyChord::parse(s).ok_or_else(|| format!("touche inconnue : {s}"))?;
+            let chord = KeyChord::parse(s).ok_or_else(|| format!("Unknown key: {s}"))?;
             let mut modifiers = 0u8;
             let mut others = Vec::new();
             for k in chord.keys() {
@@ -148,8 +148,8 @@ pub fn button_of(a: Option<&MouseAction>) -> Result<Button, String> {
                 [] => Button::Key { modifiers, usage: 0 },
                 [(_, HidUsage::Key(usage))] => Button::Key { modifiers, usage: *usage },
                 [(_, HidUsage::Consumer(u))] if modifiers == 0 => Button::Consumer(*u),
-                [(k, HidUsage::Consumer(_))] => return Err(format!("{k} ne se combine pas avec Ctrl / Maj / Alt / Win sur la souris")),
-                _ => return Err("un bouton de souris ne garde qu'une touche (avec Ctrl / Maj / Alt / Win)".into()),
+                [(k, HidUsage::Consumer(_))] => return Err(format!("{k} cannot be combined with Ctrl / Shift / Alt / Win on the mouse")),
+                _ => return Err("A mouse button can store only one key (with Ctrl / Shift / Alt / Win)".into()),
             }
         }
     })
@@ -191,7 +191,7 @@ fn hex(rgb: [u8; 3]) -> String {
 
 fn rgb(s: &str) -> Result<[u8; 3], String> {
     let h = s.trim().trim_start_matches('#');
-    let v = (h.len() == 6).then(|| u32::from_str_radix(h, 16).ok()).flatten().ok_or_else(|| format!("couleur invalide : {s}"))?;
+    let v = (h.len() == 6).then(|| u32::from_str_radix(h, 16).ok()).flatten().ok_or_else(|| format!("Invalid color: {s}"))?;
     Ok([(v >> 16) as u8, (v >> 8) as u8, v as u8])
 }
 
@@ -247,21 +247,21 @@ pub fn parse_color(s: &str) -> Result<[u8; 3], String> {
 /// `realtime`: for a G13 Studio profile (macros allowed), else for the mouse's memory.
 pub fn validate(s: &MouseSettings, dpi_min: u16, dpi_max: u16, dpi_step: u16, realtime: bool) -> Result<(), String> {
     if s.dpi.is_empty() || s.dpi.len() > DPI_SLOTS {
-        return Err(format!("de 1 à {DPI_SLOTS} paliers DPI"));
+        return Err(format!("Choose between 1 and {DPI_SLOTS} DPI steps"));
     }
     for &d in &s.dpi {
         if d < dpi_min || d > dpi_max || (dpi_step > 1 && !(d - dpi_min).is_multiple_of(dpi_step)) {
-            return Err(format!("{d} DPI impossible (de {dpi_min} à {dpi_max} par pas de {dpi_step})"));
+            return Err(format!("Unsupported DPI value {d} (range {dpi_min} to {dpi_max}, step {dpi_step})"));
         }
     }
     if usize::from(s.default_slot) >= s.dpi.len() || usize::from(s.shift_slot) >= s.dpi.len() {
-        return Err("palier par défaut ou « sniper » hors de la liste".into());
+        return Err("Default or sniper DPI step is outside the list".into());
     }
     if ![125, 250, 500, 1000].contains(&s.report_rate_hz) {
-        return Err(format!("fréquence {} Hz impossible", s.report_rate_hz));
+        return Err(format!("Unsupported report rate: {} Hz", s.report_rate_hz));
     }
     if s.buttons.len() > BUTTON_SLOTS || s.gshift.len() > BUTTON_SLOTS {
-        return Err("trop de boutons".into());
+        return Err("Too many buttons".into());
     }
     for (name, m) in &s.macros {
         macro_from_dto(name, m).map_err(|e| e.to_string())?;
@@ -278,7 +278,7 @@ pub fn validate(s: &MouseSettings, dpi_min: u16, dpi_max: u16, dpi_step: u16, re
     // without a left click the mouse would be hard to use: refuse
     let left = MouseAction::Mouse { mouse: "Left".into() };
     if !s.buttons.is_empty() && !s.buttons.iter().any(|a| a.as_ref() == Some(&left)) {
-        return Err("gardez le clic gauche sur au moins un bouton".into());
+        return Err("Keep left click assigned to at least one button".into());
     }
     Ok(())
 }

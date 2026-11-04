@@ -158,11 +158,11 @@ impl Battery {
 
     pub fn charging_name(&self) -> &'static str {
         match self.charging {
-            0 => "sur batterie",
-            1 => "en charge",
-            2 => "charge lente",
-            3 => "chargée",
-            _ => "erreur de charge",
+            0 => "On battery",
+            1 => "Charging",
+            2 => "Charging slowly",
+            3 => "Charged",
+            _ => "Charging error",
         }
     }
 }
@@ -246,9 +246,9 @@ pub const fn rom_sector(n: u16) -> u16 {
 /// memory), 2 = host (a program drives it).
 pub fn onboard_mode_name(mode: u8) -> &'static str {
     match mode {
-        1 => "mémoire de la souris",
-        2 => "piloté par un logiciel",
-        _ => "inconnu",
+        1 => "Mouse onboard memory",
+        2 => "Software controlled",
+        _ => "Unknown",
     }
 }
 
@@ -281,20 +281,20 @@ impl Control {
 /// Usual names of control ids (subset).
 pub fn control_name(cid: u16) -> &'static str {
     match cid {
-        0x0050 => "Clic gauche",
-        0x0051 => "Clic droit",
-        0x0052 => "Clic molette",
-        0x0053 => "Précédent",
-        0x0056 => "Suivant",
-        0x005B => "Molette à gauche",
-        0x005D => "Molette à droite",
-        0x00C3 => "Geste",
-        0x00C4 => "Mode molette (SmartShift)",
-        0x00D7 => "Changer d'appareil",
+        0x0050 => "Left click",
+        0x0051 => "Right click",
+        0x0052 => "Middle click",
+        0x0053 => "Previous",
+        0x0056 => "Next",
+        0x005B => "Wheel left",
+        0x005D => "Wheel right",
+        0x00C3 => "Gesture",
+        0x00C4 => "Wheel mode (SmartShift)",
+        0x00D7 => "Switch device",
         0x00ED => "DPI −",
         0x00EE => "DPI +",
         0x00FD => "DPI (cycle)",
-        0x0100 => "Profil (cycle)",
+        0x0100 => "Profile cycle",
         _ => "",
     }
 }

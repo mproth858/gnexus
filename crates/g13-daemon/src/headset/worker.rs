@@ -246,9 +246,9 @@ impl HeadsetWorker {
                         self.eq.profiles.profiles[i] = profile;
                         i
                     }
-                    Some(_) => return Err("profil inconnu".into()),
+                    Some(_) => return Err("Unknown profile".into()),
                     None if n >= super::eq::MAX_PROFILES => {
-                        return Err(format!("{} profils au plus", super::eq::MAX_PROFILES));
+                        return Err(format!("A maximum of {} profiles is allowed", super::eq::MAX_PROFILES));
                     }
                     None => {
                         self.eq.profiles.profiles.push(profile);
@@ -261,10 +261,10 @@ impl HeadsetWorker {
             }
             HeadsetCommand::DeleteEqProfile(i) => {
                 if i == self.eq.profiles.default {
-                    return Err("c'est le profil par défaut : choisissez-en un autre par défaut d'abord".into());
+                    return Err("This is the default profile: choose another default profile first".into());
                 }
                 if i >= n {
-                    return Err("profil inconnu".into());
+                    return Err("Unknown profile".into());
                 }
                 self.eq.profiles.profiles.remove(i);
                 if self.eq.profiles.default > i {
@@ -288,7 +288,7 @@ impl HeadsetWorker {
                 self.eq.pinned = p;
                 self.apply_chosen(st);
             }
-            _ => return Err("profil inconnu".into()),
+            _ => return Err("Unknown profile".into()),
         }
         Ok(())
     }
@@ -355,7 +355,7 @@ impl HeadsetWorker {
                 }
                 Ok(cmd) => {
                     let r = if !status.connected {
-                        Err("le casque est éteint".to_string())
+                        Err("The headset is switched off".to_string())
                     } else {
                         match cmd {
                             HeadsetCommand::SetSidetone(v) => h.set_sidetone(v).map(|v| {
@@ -364,7 +364,7 @@ impl HeadsetWorker {
                             }),
                             HeadsetCommand::SetSleep(m) => h.set_sleep_minutes(m).map(|m| {
                                 status.sleep_minutes = Some(m);
-                                "Mise en veille enregistrée".to_string()
+                                "Sleep setting saved".to_string()
                             }),
                             _ => Ok(String::new()),
                         }

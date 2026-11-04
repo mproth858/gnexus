@@ -52,13 +52,13 @@ const GHUB_EVERY: Duration = Duration::from_secs(5);
 /// Frame interval of the software gradient (a slow drift: 10 frames / s is smooth enough).
 const FRAME: Duration = Duration::from_millis(100);
 const GHUB_OPEN: &str =
-    "G HUB est ouvert : il reprendrait la main sur la souris. Fermez-le, puis réessayez.";
+    "G HUB is open and would take control of the mouse. Close it, then try again.";
 /// Consecutive failed requests before the mouse counts as gone (asleep, out of range…).
 const MAX_FAILURES: u32 = 3;
 /// In real time: how long to wait for a button event per loop turn.
 const EVENT_WAIT: Duration = Duration::from_millis(8);
 const FOCUS_EVERY: Duration = Duration::from_millis(400);
-const HOST_ON: &str = "Les profils intégrés sont désactivés : réactivez-les d'abord (Paramètres avancés › Profils intégrés).";
+const HOST_ON: &str = "Onboard profiles are disabled: enable them first (Advanced settings > Onboard profiles).";
 /// MouseButtonSpy: buttons reported as events, remappable (G HUB's real-time mode).
 const BUTTON_SPY: u16 = 0x8110;
 
@@ -277,20 +277,20 @@ impl MouseWorker {
                 match index {
                     Some(i) if *i < self.cfg.profiles.len() => {
                         self.cfg.profiles[*i] = p;
-                        Ok(format!("Profil {} enregistré", i + 1))
+                        Ok(format!("Profile {} saved", i + 1))
                     }
-                    Some(_) => Err("profil inconnu".to_string()),
+                    Some(_) => Err("Unknown profile".to_string()),
                     None if self.cfg.profiles.len() >= MAX_SOFT => {
-                        Err(format!("{MAX_SOFT} profils au plus"))
+                        Err(format!("A maximum of {MAX_SOFT} profiles is allowed"))
                     }
                     None => {
                         self.cfg.profiles.push(p);
-                        Ok(format!("Profil {} créé", self.cfg.profiles.len()))
+                        Ok(format!("Profile {} created", self.cfg.profiles.len()))
                     }
                 }
             }
             MouseCommand::DeleteSoft(i) if *i == self.cfg.default => Err(
-                "c'est le profil par défaut : choisissez-en un autre par défaut d'abord".to_string(),
+                "This is the default profile: choose another default profile first".to_string(),
             ),
             MouseCommand::DeleteSoft(i) if *i < self.cfg.profiles.len() => {
                 let i = *i;
@@ -303,12 +303,12 @@ impl MouseWorker {
                     Some(p) if p > i => Some(p - 1),
                     p => p,
                 };
-                Ok(format!("Profil {} supprimé", i + 1))
+                Ok(format!("Profile {} deleted", i + 1))
             }
-            MouseCommand::DeleteSoft(_) => Err("profil inconnu".to_string()),
+            MouseCommand::DeleteSoft(_) => Err("Unknown profile".to_string()),
             MouseCommand::SetSoftDefault(i) if *i < self.cfg.profiles.len() => {
                 self.cfg.default = *i;
-                Ok(format!("Profil {} : profil par défaut", i + 1))
+                Ok(format!("Profile {}: default profile", i + 1))
             }
             MouseCommand::PinSoft(p) if p.is_none_or(|p| p < self.cfg.profiles.len()) => {
                 self.pinned = *p;
@@ -316,7 +316,7 @@ impl MouseWorker {
                 return Some(Ok(String::new()));
             }
             MouseCommand::SetSoftDefault(_) | MouseCommand::PinSoft(_) => {
-                Err("profil inconnu".to_string())
+                Err("Unknown profile".to_string())
             }
             _ => return None,
         };
@@ -426,10 +426,10 @@ impl MouseWorker {
                             let exe = self.focus_exe();
                             let choice = (self.cfg.default, self.pinned);
                             s.enter_host(&self.cfg.profiles, exe, self.injector.clone(), choice)
-                                .map(|()| "Temps réel : G13 Studio pilote la souris".to_string())
+                                .map(|()| "Real time: G Nexus controls the mouse".to_string())
                         } else {
                             s.leave_host(&*self.injector, &self.cfg.profiles);
-                            Ok("Profils intégrés de la souris réactivés".to_string())
+                            Ok("Mouse onboard profiles re-enabled".to_string())
                         };
                         if r.is_ok() {
                             self.cfg.host = on;
@@ -725,7 +725,7 @@ impl Session {
     /// Take the lighting and switch the firmware effect off so per-LED colours show.
     fn enter_per_led(&mut self) -> Result<(), String> {
         let Some((ri, zones)) = self.rgb.clone() else {
-            return Err("pas de 0x8071".into());
+            return Err("Feature 0x8071 is unavailable".into());
         };
         if !self.rgb_claimed {
             self.call(ri, 5, &rgb::SW_CONTROL_TAKE)?;
@@ -810,9 +810,9 @@ impl Session {
         let si = self
             .link
             .feature(BUTTON_SPY)
-            .ok_or("cette souris ne signale pas ses boutons (0x8110) : temps réel impossible")?;
+            .ok_or("This mouse does not report its buttons (0x8110): real-time mode is unavailable")?;
         let active = host::choose(profiles, exe.as_deref(), default, pinned);
-        let p = profiles.get(active).ok_or("aucun profil G13 Studio")?;
+        let p = profiles.get(active).ok_or("No G Nexus profile")?;
         self.call(self.oi, 1, &[2])?;
         self.host = Some(HostRun {
             si,
@@ -1029,7 +1029,7 @@ impl Session {
         let r = self.link.call(feature_index, function, params);
         match &r {
             Ok(_) => self.failures = 0,
-            Err(e) if e == "pas de réponse" => self.failures += 1,
+            Err(e) if e == "No response" => self.failures += 1,
             Err(_) => {}
         }
         r
@@ -1140,7 +1140,7 @@ impl Session {
         }
         self.call(self.oi, 3, &[(sector >> 8) as u8, sector as u8])
             .map(drop)
-            .map_err(|_| format!("le profil {sector} est désactivé : activez-le d'abord"))
+            .map_err(|_| format!("Profile {sector} is disabled: enable it first"))
     }
 
     /// Enable / disable a profile in the directory. The last enabled one stays;
@@ -1152,7 +1152,7 @@ impl Session {
         let mut dir =
             Directory::parse(&self.link.read_sector(self.oi, 0, self.info.sector_size)?)?;
         let Some(i) = dir.entries.iter().position(|e| e.sector == sector) else {
-            return Err(format!("profil {sector} inconnu"));
+            return Err(format!("Unknown profile: {sector}"));
         };
         if !enabled
             && dir
@@ -1162,7 +1162,7 @@ impl Session {
                 .count()
                 == 0
         {
-            return Err("au moins un profil doit rester activé".into());
+            return Err("At least one profile must remain enabled".into());
         }
         if dir.entries[i].enabled == enabled {
             return Ok(());
@@ -1202,7 +1202,7 @@ impl Session {
         if !self.backup_exists() {
             self.backup_once();
             if !self.backup_exists() {
-                return Err("sauvegarde de la mémoire impossible : rien n'a été écrit".into());
+                return Err("Could not back up onboard memory: nothing was written".into());
             }
         }
         // a program left it in host mode: back to the mouse's own memory
@@ -1212,7 +1212,7 @@ impl Session {
         let current = self
             .current_profile()
             .filter(|&p| p != 0)
-            .ok_or("aucun profil actif dans la souris")?;
+            .ok_or("No active profile on the mouse")?;
         let profile = target.unwrap_or(current);
         let mut p = Profile::parse(
             &self
@@ -1224,7 +1224,7 @@ impl Session {
         self.link.write_sector(self.oi, profile, &p.to_bytes())?;
         if profile != current {
             log::info!("mouse: settings written to onboard profile {profile} (not active)");
-            return Ok(format!("Enregistré dans la souris (profil {profile})"));
+            return Ok(format!("Saved to the mouse (profile {profile})"));
         }
         // the gradient lives in G13 Studio (mouse.toml), the rest in the mouse
         self.soft = matches!(s.lighting, Lighting::Gradient { .. }).then(|| s.lighting.clone());
@@ -1236,7 +1236,7 @@ impl Session {
         // re-selecting the profile makes the mouse reload it (DPI, rate, lighting)
         self.call(self.oi, 3, &[(profile >> 8) as u8, profile as u8])?;
         log::info!("mouse: settings written to onboard profile {profile}");
-        Ok(format!("Enregistré dans la souris (profil {profile})"))
+        Ok(format!("Saved to the mouse (profile {profile})"))
     }
 
     fn slug(&self) -> String {

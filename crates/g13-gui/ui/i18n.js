@@ -6,7 +6,7 @@
 "use strict";
 
 const LANGS = ["fr", "en", "de", "it", "es"];
-let LANG = "fr";
+let LANG = "en";
 
 // The system G Nexus runs on, from the web view (WebKitGTK on Linux, WebView2 on
 // Windows); `?os=linux` in a plain browser (dev-mock). Elements marked `win-only` /
@@ -17,6 +17,10 @@ document.documentElement.classList.add(`os-${OS}`);
 
 // key → [en, de, it, es]
 const TR = {
+  "Français": ["French", "Französisch", "Francese", "Francés"],
+  "Deutsch": ["German", "Deutsch", "Tedesco", "Alemán"],
+  "Italiano": ["Italian", "Italienisch", "Italiano", "Italiano"],
+  "Español": ["Spanish", "Spanisch", "Spagnolo", "Español"],
   "{n} entrées capturées. Faites vos actions, puis STOP.": ["{n} inputs captured. Perform your actions, then STOP.", "{n} Eingaben erfasst. Aktionen ausführen, dann STOP.", "{n} input acquisiti. Esegui le azioni, poi STOP.", "{n} entradas capturadas. Realiza tus acciones y pulsa STOP."],
   // ---- header, rails, status -------------------------------------------------------
   "Nouveau profil": ["New profile", "Neues Profil", "Nuovo profilo", "Nuevo perfil"],
@@ -1058,11 +1062,11 @@ function t(key, vars) {
   return s;
 }
 
-/** Language to use: the saved choice, else the system's, else French. */
+/** Language to use: the saved choice, else the system's, else English. */
 function pickLang(saved) {
   if (LANGS.includes(saved)) return saved;
-  const sys = (navigator.language || "fr").slice(0, 2).toLowerCase();
-  return LANGS.includes(sys) ? sys : "fr";
+  const sys = (navigator.language || "en").slice(0, 2).toLowerCase();
+  return LANGS.includes(sys) ? sys : "en";
 }
 
 const norm = (s) => s.replace(/\s+/g, " ").trim();

@@ -53,7 +53,7 @@ pub fn output_volume(name: &str) -> PlatformResult<Option<OutputVolume>> {
 }
 
 pub fn set_output_volume(name: &str, volume: Option<u8>, mute: Option<bool>) -> PlatformResult {
-    let Some((dev, _)) = find(name)? else { return Err(PlatformError::Os("sortie audio du casque introuvable".into())) };
+    let Some((dev, _)) = find(name)? else { return Err(PlatformError::Os("Headset audio output not found".into())) };
     let ep = endpoint(&dev)?;
     // SAFETY: setters of the endpoint volume (no event context).
     unsafe {
@@ -120,12 +120,12 @@ pub fn set_fx_value(key: &str, value: &str, data: &[u8]) -> PlatformResult {
         let mut h: HKEY = std::ptr::null_mut();
         let r = RegOpenKeyExW(HKEY_LOCAL_MACHINE, path.as_ptr(), 0, KEY_SET_VALUE, &mut h);
         if r != 0 {
-            return Err(PlatformError::Os(format!("réglages audio du casque : accès refusé ({r})")));
+            return Err(PlatformError::Os(format!("Headset audio settings: access denied ({r})")));
         }
         let r = RegSetValueExW(h, name.as_ptr(), 0, REG_BINARY, data.as_ptr(), data.len() as u32);
         RegCloseKey(h);
         if r != 0 {
-            return Err(PlatformError::Os(format!("réglages audio du casque : écriture refusée ({r})")));
+            return Err(PlatformError::Os(format!("Headset audio settings: write denied ({r})")));
         }
     }
     Ok(())
@@ -135,14 +135,14 @@ pub fn set_fx_value(key: &str, value: &str, data: &[u8]) -> PlatformResult {
 /// effects) for `seconds`; `tick(t)` is called about every 10 ms (tests).
 pub fn play_noise(name: &str, seconds: f32, amplitude: f32, tick: &mut dyn FnMut(f32)) -> PlatformResult {
     use windows::Win32::Media::Audio::{AUDCLNT_SHAREMODE_SHARED, IAudioClient, IAudioRenderClient};
-    let Some((dev, _)) = find(name)? else { return Err(PlatformError::Os("sortie introuvable".into())) };
+    let Some((dev, _)) = find(name)? else { return Err(PlatformError::Os("Audio output not found".into())) };
     // SAFETY: WASAPI shared-mode rendering of 32-bit float samples (the mix format).
     unsafe {
         let client: IAudioClient = dev.Activate(CLSCTX_ALL, None).map_err(err)?;
         let fmt = client.GetMixFormat().map_err(err)?;
         let (channels, rate, bits) = ((*fmt).nChannels as usize, (*fmt).nSamplesPerSec as f32, (*fmt).wBitsPerSample);
         if bits != 32 {
-            return Err(PlatformError::Os(format!("format {bits} bits non géré")));
+            return Err(PlatformError::Os(format!("Unsupported {bits}-bit format")));
         }
         client.Initialize(AUDCLNT_SHAREMODE_SHARED, 0, 2_000_000, 0, fmt, None).map_err(err)?;
         let frames = client.GetBufferSize().map_err(err)?;
@@ -194,11 +194,11 @@ pub fn output_eq(name: &str) -> PlatformResult<Option<crate::platform::OutputEq>
 }
 
 pub fn set_output_eq(name: &str, gains: &[f32]) -> PlatformResult {
-    let key = endpoint_key(name)?.ok_or_else(|| PlatformError::Os("sortie audio du casque introuvable".into()))?;
+    let key = endpoint_key(name)?.ok_or_else(|| PlatformError::Os("Headset audio output not found".into()))?;
     let mut b = fx_value(&key, HX2E_EQ)?
-        .ok_or_else(|| PlatformError::Os("effet audio Logitech absent (installé avec le pilote de G HUB)".into()))?;
+        .ok_or_else(|| PlatformError::Os("Logitech audio effect not found (installed with the G HUB driver)".into()))?;
     if b.len() < 8 + 12 * HX2E_BANDS || gains.len() != HX2E_BANDS {
-        return Err(PlatformError::Os("réglage d'égaliseur inattendu".into()));
+        return Err(PlatformError::Os("Unexpected equalizer setting".into()));
     }
     for (i, g) in gains.iter().enumerate() {
         let at = 8 + 4 * (HX2E_BANDS + i);

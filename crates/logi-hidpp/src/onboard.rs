@@ -66,7 +66,7 @@ pub struct Directory {
 impl Directory {
     pub fn parse(sector: &[u8]) -> Result<Self, String> {
         if !crc_ok(sector) {
-            return Err("annuaire des profils : CRC invalide".into());
+            return Err("Profile directory: invalid CRC".into());
         }
         let mut entries = Vec::new();
         for e in sector[..sector.len() - 2].as_chunks::<4>().0 {
@@ -271,10 +271,10 @@ impl Profile {
     /// Parse a profile sector. `check_crc = false` for factory (ROM) profiles, which have none.
     pub fn parse(sector: &[u8], check_crc: bool) -> Result<Self, String> {
         if sector.len() < 254 {
-            return Err(format!("secteur trop court ({} octets)", sector.len()));
+            return Err(format!("Sector too short ({} bytes)", sector.len()));
         }
         if check_crc && !crc_ok(sector) {
-            return Err("profil : CRC invalide".into());
+            return Err("Profile: invalid CRC".into());
         }
         Ok(Self { raw: sector.to_vec() })
     }

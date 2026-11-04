@@ -158,7 +158,7 @@ fn restart_audio() -> Result<(), String> {
     run(&["stop", "audiosrv", "/y"])?;
     let out = run(&["start", "audiosrv"])?;
     // "already started" is fine too
-    if out.status.success() || String::from_utf8_lossy(&out.stdout).contains("audiosrv") { Ok(()) } else { Err("service audio non redémarré".into()) }
+    if out.status.success() || String::from_utf8_lossy(&out.stdout).contains("audiosrv") { Ok(()) } else { Err("Audio service did not restart".into()) }
 }
 
 /// Install on `endpoint` (`{guid}` of the output) the DLL `dll` (administrator).
@@ -209,7 +209,7 @@ pub fn install(endpoint: &str, dll: &std::path::Path) -> Result<(), String> {
     apo.set_string("APOInterface0", IID_APO)?;
 
     // keep what was in the slot (once: a reinstall must not save our own CLSID)
-    let fx = Key::open(&fx_key(endpoint), KEY_QUERY_VALUE | KEY_SET_VALUE).ok_or("réglages audio de la sortie inaccessibles")?;
+    let fx = Key::open(&fx_key(endpoint), KEY_QUERY_VALUE | KEY_SET_VALUE).ok_or("Output audio settings are inaccessible")?;
     let ours = Key::create(OUR_KEY)?;
     let mine = Key::open(OUR_KEY, KEY_QUERY_VALUE);
     if mine.as_ref().and_then(|k| k.get_string("Endpoint")).as_deref() != Some(endpoint) {

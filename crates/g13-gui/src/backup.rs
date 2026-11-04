@@ -84,7 +84,7 @@ pub fn collect(dir: &Path, settings: &Settings, autostart: bool) -> Result<Backu
 /// Write back the other configuration files of `backup` (the running mouse and
 /// headset threads read them again at the next start of the app).
 pub fn restore_files(dir: &Path, backup: &Backup) -> Result<(), String> {
-    let config = dir.parent().ok_or("aucun dossier de configuration")?;
+    let config = dir.parent().ok_or("No configuration directory")?;
     for (name, text) in &backup.files {
         if EXTRA_FILES.contains(&name.as_str()) {
             let path = config.join(name);
@@ -133,7 +133,7 @@ pub fn last_auto(dir: &Path) -> Option<String> {
 /// (`force`: now) and the configuration changed since; only the `keep` newest stay.
 /// Returns the file written.
 pub fn auto_backup(dir: &Path, settings: &Settings, autostart: bool, force: bool) -> Result<Option<PathBuf>, String> {
-    let auto = auto_dir(dir).ok_or("aucun dossier de configuration")?;
+    let auto = auto_dir(dir).ok_or("No configuration directory")?;
     let files = auto_files(&auto);
     let last = files.last();
     if !force {
@@ -181,21 +181,21 @@ pub fn write(path: &Path, backup: &Backup) -> Result<(), String> {
 /// Read and check a backup: right format, safe ids, every profile valid.
 pub fn parse(text: &str) -> Result<Backup, String> {
     let b: Backup = serde_json::from_str(text.trim_start_matches('\u{feff}'))
-        .map_err(|e| format!("ce fichier n'est pas une sauvegarde G Nexus ({e})"))?;
+        .map_err(|e| format!("This file is not a G Nexus backup ({e})"))?;
     if b.format != FORMAT {
-        return Err("ce fichier n'est pas une sauvegarde G Nexus".into());
+        return Err("This file is not a G Nexus backup".into());
     }
     if b.version > 1 {
-        return Err("sauvegarde créée par une version plus récente de G Nexus".into());
+        return Err("This backup was created by a newer version of G Nexus".into());
     }
     if b.profiles.is_empty() {
-        return Err("la sauvegarde ne contient aucun profil".into());
+        return Err("The backup contains no profiles".into());
     }
     for (id, text) in &b.profiles {
         if !safe_id(id) {
-            return Err(format!("identifiant de profil invalide : {id:?}"));
+            return Err(format!("Invalid profile ID: {id:?}"));
         }
-        g13_daemon::profiles::from_toml(text).map_err(|e| format!("profil « {id} » : {}", e.0))?;
+        g13_daemon::profiles::from_toml(text).map_err(|e| format!("Profile '{id}': {}", e.0))?;
     }
     Ok(b)
 }

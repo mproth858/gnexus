@@ -99,7 +99,7 @@ struct AppState {
 
 impl AppState {
     fn dir(&self) -> Result<&PathBuf, String> {
-        self.profiles_dir.as_ref().ok_or_else(|| "aucun dossier de profils".to_string())
+        self.profiles_dir.as_ref().ok_or_else(|| "No profiles directory".to_string())
     }
 
     fn request(&self, req: Request) {
@@ -166,7 +166,7 @@ fn pause_regular_keys(state: State<AppState>) -> Result<(), String> {
 #[tauri::command]
 fn apply_mouse(state: State<AppState>, settings: MouseSettings, sector: Option<u16>) -> Result<(), String> {
     let rt = state.runtime.lock().unwrap();
-    let rt = rt.as_ref().ok_or("moteur arrêté")?;
+    let rt = rt.as_ref().ok_or("Engine stopped")?;
     rt.mouse(MouseCommand::Apply { sector, settings });
     Ok(())
 }
@@ -204,14 +204,14 @@ async fn import_mouse_profile(app: AppHandle, state: State<'_, AppState>) -> Res
     };
     let path = file.into_path().map_err(|e| e.to_string())?;
     let text = std::fs::read_to_string(&path).map_err(|e| format!("{}: {e}", path.display()))?;
-    serde_json::from_str(text.trim_start_matches('\u{feff}')).map(Some).map_err(|e| format!("fichier de profil de souris invalide ({e})"))
+    serde_json::from_str(text.trim_start_matches('\u{feff}')).map(Some).map_err(|e| format!("Invalid mouse profile file ({e})"))
 }
 
 /// Make an onboard profile of the mouse the active one.
 #[tauri::command]
 fn select_mouse_profile(state: State<AppState>, sector: u16) -> Result<(), String> {
     let rt = state.runtime.lock().unwrap();
-    rt.as_ref().ok_or("moteur arrêté")?.mouse(MouseCommand::Select(sector));
+    rt.as_ref().ok_or("Engine stopped")?.mouse(MouseCommand::Select(sector));
     Ok(())
 }
 
@@ -225,7 +225,7 @@ fn get_headset(state: State<AppState>) -> Option<HeadsetStatus> {
 #[tauri::command]
 fn set_headset_sidetone(state: State<AppState>, level: u8) -> Result<(), String> {
     let rt = state.runtime.lock().unwrap();
-    rt.as_ref().ok_or("moteur arrêté")?.headset(HeadsetCommand::SetSidetone(level));
+    rt.as_ref().ok_or("Engine stopped")?.headset(HeadsetCommand::SetSidetone(level));
     Ok(())
 }
 
@@ -233,7 +233,7 @@ fn set_headset_sidetone(state: State<AppState>, level: u8) -> Result<(), String>
 #[tauri::command]
 fn set_headset_sleep(state: State<AppState>, minutes: u8) -> Result<(), String> {
     let rt = state.runtime.lock().unwrap();
-    rt.as_ref().ok_or("moteur arrêté")?.headset(HeadsetCommand::SetSleep(minutes));
+    rt.as_ref().ok_or("Engine stopped")?.headset(HeadsetCommand::SetSleep(minutes));
     Ok(())
 }
 
@@ -280,9 +280,9 @@ async fn import_eq_profile(app: AppHandle, state: State<'_, AppState>) -> Result
     };
     let path = file.into_path().map_err(|e| e.to_string())?;
     let text = std::fs::read_to_string(&path).map_err(|e| format!("{}: {e}", path.display()))?;
-    let f: EqFile = serde_json::from_str(text.trim_start_matches('\u{feff}')).map_err(|e| format!("fichier de profil d'égaliseur invalide ({e})"))?;
+    let f: EqFile = serde_json::from_str(text.trim_start_matches('\u{feff}')).map_err(|e| format!("Invalid equalizer profile file ({e})"))?;
     if f.format != EQ_FORMAT || f.profile.gains.len() != g13_dsp::DEFAULT_FREQS.len() {
-        return Err("fichier de profil d'égaliseur invalide".into());
+        return Err("Invalid equalizer profile file".into());
     }
     let mut p = f.profile;
     for g in &mut p.gains {
@@ -294,7 +294,7 @@ async fn import_eq_profile(app: AppHandle, state: State<'_, AppState>) -> Result
 /// Send a command to the headset thread.
 fn headset_cmd(state: &State<AppState>, cmd: HeadsetCommand) -> Result<(), String> {
     let rt = state.runtime.lock().unwrap();
-    rt.as_ref().ok_or("moteur arrêté")?.headset(cmd);
+    rt.as_ref().ok_or("Engine stopped")?.headset(cmd);
     Ok(())
 }
 
@@ -330,14 +330,14 @@ fn pin_eq_profile(state: State<AppState>, index: Option<usize>) -> Result<(), St
 #[tauri::command]
 fn set_headset_volume(state: State<AppState>, volume: u8) -> Result<(), String> {
     let rt = state.runtime.lock().unwrap();
-    rt.as_ref().ok_or("moteur arrêté")?.headset(HeadsetCommand::SetVolume(volume));
+    rt.as_ref().ok_or("Engine stopped")?.headset(HeadsetCommand::SetVolume(volume));
     Ok(())
 }
 
 #[tauri::command]
 fn set_headset_mute(state: State<AppState>, mute: bool) -> Result<(), String> {
     let rt = state.runtime.lock().unwrap();
-    rt.as_ref().ok_or("moteur arrêté")?.headset(HeadsetCommand::SetMute(mute));
+    rt.as_ref().ok_or("Engine stopped")?.headset(HeadsetCommand::SetMute(mute));
     Ok(())
 }
 
@@ -345,7 +345,7 @@ fn set_headset_mute(state: State<AppState>, mute: bool) -> Result<(), String> {
 #[tauri::command]
 fn set_headset_eq(state: State<AppState>, gains: Vec<i8>) -> Result<(), String> {
     let rt = state.runtime.lock().unwrap();
-    rt.as_ref().ok_or("moteur arrêté")?.headset(HeadsetCommand::SetEqualizer(gains));
+    rt.as_ref().ok_or("Engine stopped")?.headset(HeadsetCommand::SetEqualizer(gains));
     Ok(())
 }
 
@@ -353,7 +353,7 @@ fn set_headset_eq(state: State<AppState>, gains: Vec<i8>) -> Result<(), String> 
 #[tauri::command]
 fn enable_mouse_profile(state: State<AppState>, sector: u16, enabled: bool) -> Result<(), String> {
     let rt = state.runtime.lock().unwrap();
-    rt.as_ref().ok_or("moteur arrêté")?.mouse(MouseCommand::SetEnabled { sector, enabled });
+    rt.as_ref().ok_or("Engine stopped")?.mouse(MouseCommand::SetEnabled { sector, enabled });
     Ok(())
 }
 
@@ -393,7 +393,7 @@ fn delete_library_macro(state: State<AppState>, name: String) -> Result<(), Stri
 #[tauri::command]
 fn set_mouse_soft_default(state: State<AppState>, index: usize) -> Result<(), String> {
     let rt = state.runtime.lock().unwrap();
-    rt.as_ref().ok_or("moteur arrêté")?.mouse(MouseCommand::SetSoftDefault(index));
+    rt.as_ref().ok_or("Engine stopped")?.mouse(MouseCommand::SetSoftDefault(index));
     Ok(())
 }
 
@@ -401,7 +401,7 @@ fn set_mouse_soft_default(state: State<AppState>, index: usize) -> Result<(), St
 #[tauri::command]
 fn pin_mouse_soft(state: State<AppState>, index: Option<usize>) -> Result<(), String> {
     let rt = state.runtime.lock().unwrap();
-    rt.as_ref().ok_or("moteur arrêté")?.mouse(MouseCommand::PinSoft(index));
+    rt.as_ref().ok_or("Engine stopped")?.mouse(MouseCommand::PinSoft(index));
     Ok(())
 }
 
@@ -434,7 +434,7 @@ fn record_stop(state: State<AppState>, delays: bool) -> Result<Vec<String>, Stri
 #[tauri::command]
 fn set_mouse_host(state: State<AppState>, on: bool) -> Result<(), String> {
     let rt = state.runtime.lock().unwrap();
-    rt.as_ref().ok_or("moteur arrêté")?.mouse(MouseCommand::SetHost(on));
+    rt.as_ref().ok_or("Engine stopped")?.mouse(MouseCommand::SetHost(on));
     Ok(())
 }
 
@@ -442,14 +442,14 @@ fn set_mouse_host(state: State<AppState>, on: bool) -> Result<(), String> {
 #[tauri::command]
 fn save_mouse_soft(state: State<AppState>, index: Option<usize>, profile: SoftProfile) -> Result<(), String> {
     let rt = state.runtime.lock().unwrap();
-    rt.as_ref().ok_or("moteur arrêté")?.mouse(MouseCommand::SaveSoft { index, profile });
+    rt.as_ref().ok_or("Engine stopped")?.mouse(MouseCommand::SaveSoft { index, profile });
     Ok(())
 }
 
 #[tauri::command]
 fn delete_mouse_soft(state: State<AppState>, index: usize) -> Result<(), String> {
     let rt = state.runtime.lock().unwrap();
-    rt.as_ref().ok_or("moteur arrêté")?.mouse(MouseCommand::DeleteSoft(index));
+    rt.as_ref().ok_or("Engine stopped")?.mouse(MouseCommand::DeleteSoft(index));
     Ok(())
 }
 
@@ -457,7 +457,7 @@ fn delete_mouse_soft(state: State<AppState>, index: usize) -> Result<(), String>
 #[tauri::command]
 fn preview_mouse(state: State<AppState>, lighting: Lighting, dpi: Option<u16>) -> Result<(), String> {
     let rt = state.runtime.lock().unwrap();
-    rt.as_ref().ok_or("moteur arrêté")?.mouse(MouseCommand::Preview { lighting, dpi });
+    rt.as_ref().ok_or("Engine stopped")?.mouse(MouseCommand::Preview { lighting, dpi });
     Ok(())
 }
 
@@ -465,7 +465,7 @@ fn preview_mouse(state: State<AppState>, lighting: Lighting, dpi: Option<u16>) -
 #[tauri::command]
 fn revert_mouse(state: State<AppState>) -> Result<(), String> {
     let rt = state.runtime.lock().unwrap();
-    rt.as_ref().ok_or("moteur arrêté")?.mouse(MouseCommand::Revert);
+    rt.as_ref().ok_or("Engine stopped")?.mouse(MouseCommand::Revert);
     Ok(())
 }
 
@@ -550,7 +550,7 @@ fn set_settings(
     let launcher = app.autolaunch();
     if launcher.is_enabled().unwrap_or(false) != autostart {
         let r = if autostart { enable_autostart(&app) } else { launcher.disable().map_err(|e| e.to_string()) };
-        r.map_err(|e| format!("démarrage automatique : {e}"))?;
+        r.map_err(|e| format!("Autostart: {e}"))?;
     }
     let key = parse_overlay_key(overlay_key.as_deref());
     state.request(Request::SetOverlayKey(key));
@@ -643,7 +643,7 @@ fn apply_settings(app: &AppHandle, state: &AppState, settings: Settings, autosta
         let launcher = app.autolaunch();
         if launcher.is_enabled().unwrap_or(false) != on {
             let r = if on { enable_autostart(app) } else { launcher.disable().map_err(|e| e.to_string()) };
-            r.map_err(|e| format!("démarrage automatique : {e}"))?;
+            r.map_err(|e| format!("Autostart: {e}"))?;
         }
     }
     Ok(())
@@ -653,7 +653,7 @@ fn apply_settings(app: &AppHandle, state: &AppState, settings: Settings, autosta
 fn safety_backup(app: &AppHandle, state: &AppState, label: &str) -> Result<(), String> {
     let dir = state.dir()?;
     let b = backup::collect(dir, &state.settings.lock().unwrap(), app.autolaunch().is_enabled().unwrap_or(false))?;
-    let path = backup::auto_path(dir, label).ok_or("aucun dossier de configuration")?;
+    let path = backup::auto_path(dir, label).ok_or("No configuration directory")?;
     backup::write(&path, &b)?;
     log::info!("configuration saved to {}", path.display());
     Ok(())
@@ -721,7 +721,7 @@ fn reset_config(app: AppHandle, state: State<AppState>) -> Result<(), String> {
 /// Open the folder holding the automatic backups.
 #[tauri::command]
 fn open_backups_dir(app: AppHandle, state: State<AppState>) -> Result<(), String> {
-    let dir = state.dir()?.parent().map(|p| p.join("backups")).ok_or("aucun dossier")?;
+    let dir = state.dir()?.parent().map(|p| p.join("backups")).ok_or("No directory")?;
     std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
     app.opener().open_path(dir.display().to_string(), None::<&str>).map_err(|e| e.to_string())
 }
@@ -1102,7 +1102,7 @@ async fn install_device_access(record: bool) -> Result<bool, String> {
     #[cfg(not(target_os = "linux"))]
     {
         let _ = record;
-        Err("rien à installer sur ce système".into())
+        Err("There is nothing to install on this system".into())
     }
 }
 
@@ -1134,7 +1134,7 @@ const LINKS: &[(&str, &str)] = &[
 /// Open one of [`LINKS`] in the default browser.
 #[tauri::command]
 fn open_link(app: AppHandle, which: String) -> Result<(), String> {
-    let url = LINKS.iter().find(|(id, _)| *id == which).map(|(_, u)| *u).ok_or("lien inconnu")?;
+    let url = LINKS.iter().find(|(id, _)| *id == which).map(|(_, u)| *u).ok_or("Unknown link")?;
     app.opener().open_url(url, None::<&str>).map_err(|e| e.to_string())
 }
 
@@ -1276,7 +1276,7 @@ fn audio_setup_mode(args: &[String]) -> Option<i32> {
                 })
         }
         (Some("uninstall"), _) => g13_apo::setup::uninstall(),
-        _ => Err("commande d'installation inconnue".to_string()),
+        _ => Err("Unknown installation command".to_string()),
     };
     if let Some(f) = result_file {
         let _ = std::fs::write(f, r.as_ref().err().cloned().unwrap_or_default());
@@ -1294,7 +1294,7 @@ fn run_audio_setup(args: &str) -> Result<(), String> {
         .map_err(|e| e.detail())?;
     let msg = std::fs::read_to_string(&result).unwrap_or_default();
     let _ = std::fs::remove_file(&result);
-    if code == 0 { Ok(()) } else if msg.is_empty() { Err(format!("installation interrompue (code {code})")) } else { Err(msg) }
+    if code == 0 { Ok(()) } else if msg.is_empty() { Err(format!("Installation interrupted (code {code})")) } else { Err(msg) }
 }
 
 /// Install G Nexus's equalizer on the headset's output (administrator rights, once).
@@ -1306,7 +1306,7 @@ async fn audio_eq_install(state: State<'_, AppState>) -> Result<(), String> {
         let name = name.unwrap_or_else(|| "PRO X Wireless".into());
         let endpoint = g13_daemon::platform::windows::audio::endpoint_key(&name)
             .map_err(|e| e.detail())?
-            .ok_or("sortie audio du casque introuvable")?;
+            .ok_or("Headset audio output not found")?;
         tauri::async_runtime::spawn_blocking(move || run_audio_setup(&format!("install {{result}} {endpoint}")))
             .await
             .map_err(|e| e.to_string())??;
@@ -1330,7 +1330,7 @@ async fn audio_eq_install(state: State<'_, AppState>) -> Result<(), String> {
     #[cfg(not(any(windows, target_os = "linux")))]
     {
         let _ = state;
-        Err("égaliseur pas encore disponible sur ce système".into())
+        Err("The equalizer is not yet available on this system".into())
     }
 }
 
@@ -1356,7 +1356,7 @@ async fn audio_eq_uninstall(state: State<'_, AppState>) -> Result<(), String> {
     #[cfg(not(any(windows, target_os = "linux")))]
     {
         let _ = state;
-        Err("égaliseur pas encore disponible sur ce système".into())
+        Err("The equalizer is not yet available on this system".into())
     }
 }
 
@@ -1401,13 +1401,14 @@ fn main() {
         .or_else(g13_daemon::profiles::store::default_dir);
     let start_hidden = autostarted && settings.start_minimized;
 
+    let initial_ui_lang = settings.language.clone().unwrap_or_else(|| "en".into());
     let state = AppState {
         runtime: Mutex::new(runtime),
         profiles_dir,
         status: status.clone(),
         settings: Mutex::new(settings),
         settings_path,
-        ui_lang: Mutex::new("fr".into()),
+        ui_lang: Mutex::new(initial_ui_lang),
         recorder: Mutex::new(None),
         overlay_pending: Mutex::new(None),
     };
@@ -1508,7 +1509,8 @@ fn main() {
                 }
             }
 
-            let menu = tray_menu(app.handle(), "fr")?;
+            let tray_lang = app.state::<AppState>().ui_lang.lock().unwrap().clone();
+            let menu = tray_menu(app.handle(), &tray_lang)?;
             let mut tray = TrayIconBuilder::with_id("main")
                 .tooltip("G Nexus")
                 .menu(&menu)

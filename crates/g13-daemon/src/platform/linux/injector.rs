@@ -36,7 +36,7 @@ pub struct UinputInjector {
 
 fn os(what: &str, e: io::Error) -> PlatformError {
     let hint = if e.kind() == io::ErrorKind::PermissionDenied || e.kind() == io::ErrorKind::NotFound {
-        " (accès à /dev/uinput : installez deploy/linux/70-gnexus-uaccess.rules et uinput.conf)"
+        " (access to /dev/uinput: install deploy/linux/70-gnexus-uaccess.rules and uinput.conf)"
     } else {
         ""
     };
@@ -77,7 +77,7 @@ impl UinputInjector {
             .and_then(|b| b.name(MOUSE_NAME).input_id(id()).with_keys(&buttons))
             .and_then(|b| b.with_relative_axes(&axes))
             .and_then(|b| b.build())
-            .map_err(|e| os("souris virtuelle", e))?;
+            .map_err(|e| os("Virtual mouse", e))?;
 
         Ok(Self { keyboard: Mutex::new(keyboard), mouse: Mutex::new(mouse), pad: LinuxPad::default() })
     }
