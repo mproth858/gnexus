@@ -1,7 +1,7 @@
 param(
     [ValidateSet('Build', 'Test', 'Check')][string]$Action = 'Build',
     [string]$ToolchainBin,
-    [string]$TargetDir = (Join-Path $env:LOCALAPPDATA 'G Nexus Build')
+    [string]$TargetDir = (Join-Path $env:LOCALAPPDATA 'GnexusBuild')
 )
 $ErrorActionPreference = 'Stop'
 $cargoBin = Join-Path $env:USERPROFILE '.cargo\bin'
