@@ -837,19 +837,27 @@ body.keyboard-mode .profile-row, body.keyboard-mode .mouse-page, body.keyboard-m
 #kb-macros summary { cursor: pointer; padding: 16px 0; font-size: 20px; }
 #kb-regular summary { cursor: pointer; padding: 16px 0; font-size: 20px; }
 .kb-regular-layout { overflow-x: auto; margin: 16px 0; }
-.kb-regular-row { display: flex; min-width: 850px; gap: 5px; margin-bottom: 5px; }
-.kb-regular-row button { min-width: 0; height: 40px; border: 1px solid var(--line-dim); background: var(--panel-2); color: var(--text); border-radius: 5px; cursor: pointer; }
-.kb-regular-row button.assigned { border-color: var(--accent); background: var(--accent-dim); }
 .kb-regular-assignment { display: flex; align-items: center; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid var(--line-dim); }
 .kb-regular-assignment > button:first-child { color: var(--text); background: transparent; border: 0; cursor: pointer; }
 #kb-key-colors summary { cursor: pointer; padding: 16px 0; font-size: 20px; }
 .kb-paint-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 .kb-paint-toolbar label { margin: 8px 12px 8px 0; }
 .kb-color-layout { overflow-x: auto; margin: 18px 0; padding: 4px; }
-.kb-color-board { min-width: 940px; }
-.kb-color-sections { display: grid; grid-template-columns: minmax(0, 1fr) 190px; gap: 14px; }
-.kb-color-row { display: flex; gap: 4px; margin-bottom: 5px; }
-.kb-color-row button { min-width: 0; height: 38px; padding: 3px; border: 1px solid #8791a4; border-radius: 5px; background: var(--paint); color: var(--paint-text); font: inherit; font-size: 12px; cursor: pointer; }
-.kb-color-row button.selected { outline: 2px solid var(--accent); outline-offset: 1px; }
-.kb-color-row button:disabled { opacity: .25; cursor: default; }
+/* Original full-size G915, shared by color and assignment views. Scroll only
+   on small windows; preserve the real keycap positions and aspect ratio. */
+.g915-board { position: relative; min-width: 880px; width: 100%; aspect-ratio: 25.3 / 8.1; border: 1px solid #505763; border-radius: 9px; background: linear-gradient(105deg, #343b40, #242a2e 55%, #343b40); box-shadow: inset 0 0 0 3px #1b2024; }
+.g915-cap { position: absolute; box-sizing: border-box; display: flex; align-items: center; justify-content: center; min-width: 0; padding: 2px; border: 1px solid #656e78; border-radius: 4px; background: #151b20; color: #ecf1f7; font: 11px system-ui, sans-serif; overflow: hidden; }
+button.g915-cap { cursor: pointer; box-shadow: inset 0 -3px 0 #0004; }
+button.g915-cap:hover { border-color: #e4ebf7; filter: brightness(1.15); }
+button.g915-cap:focus-visible { outline: 2px solid white; outline-offset: 1px; z-index: 1; }
+button.g915-cap:disabled { opacity: .4; cursor: default; }
+.g915-cap.assigned { border-color: var(--accent); background: var(--accent-dim); }
+.g915-round, .g915-hardware { border-radius: 50%; font-size: 9px; }
+.g915-indicator { border: 0; background: transparent; color: #b5c0cc; font-size: 7px; }
+.g915-hardware { color: #b5c0cc; background: #1b2227; }
+.g915-roller { border: 4px solid #13191e; border-radius: 8px; background: repeating-linear-gradient(0deg, #69737d 0, #69737d 1px, #242c33 1px, #242c33 3px); color: white; text-shadow: 0 1px 3px #000; font-size: 9px; }
+.g915-logo { border: 0; background: transparent; font-size: 32px; font-weight: bold; }
+.g915-iso-enter { clip-path: polygon(0 0, 100% 0, 100% 100%, 16.667% 100%, 16.667% 47.368%, 0 47.368%); }
+#kb-color-layout button.g915-cap { background: var(--paint); color: var(--paint-text); }
+#kb-color-layout button.selected { outline: 2px solid white; outline-offset: 1px; z-index: 1; box-shadow: inset 0 0 0 2px #101827; }
 .kb-paint-footer { display: flex; align-items: center; justify-content: space-between; gap: 12px; }

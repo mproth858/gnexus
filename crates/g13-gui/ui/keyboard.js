@@ -20,7 +20,7 @@ const Keyboard = {
     });
     $("#kb-banks").addEventListener("click", (e) => {
       const bank = e.target.closest("[data-bank]")?.dataset.bank;
-      if (bank) { this.bank = bank; this.renderKeys(); }
+      if (bank) { this.bank = bank; this.renderKeys(); this.renderRegular(); }
     });
     $("#kb-regular-source").innerHTML = ALL_CODES.map((key) => `<option value="${esc(key)}">${esc(KEY_LABELS[key] || key)} (${esc(key)})</option>`).join("");
     $("#kb-per-key").addEventListener("change", (e) => {
@@ -55,7 +55,9 @@ const Keyboard = {
     $("#kb-regular-add").addEventListener("click", () => this.pickRegular($("#kb-regular-source").value));
     $("#kb-regular-layout").addEventListener("click", (e) => {
       const key = e.target.closest("[data-regular]")?.dataset.regular;
+      const gkey = e.target.closest("[data-key]")?.dataset.key;
       if (key) this.pickRegular(key);
+      else if (gkey) this.pickGkey(gkey);
     });
     $("#kb-regular-list").addEventListener("click", (e) => {
       const restore = e.target.closest("[data-restore]")?.dataset.restore;
@@ -69,16 +71,7 @@ const Keyboard = {
     });
     $("#kb-keys").addEventListener("click", (e) => {
       const key = e.target.closest("[data-key]")?.dataset.key;
-      if (!key || !this.draft) return;
-      const bank = this.draft.profile.banks[this.bank] ??= {};
-      openPickerFor({
-        label: key, sub: `G915 · ${this.bank}`, dance: true,
-        get: () => bank[key],
-        set: (action) => { if (action == null) delete bank[key]; else bank[key] = action; this.changed(); },
-        macros: () => this.draft.profile.macros,
-        newMacro: () => this.editor.add(),
-        openMacros: () => { $("#kb-macros").open = true; this.editor.render(); $("#kb-macro-edit").scrollIntoView({ block: "nearest" }); },
-      });
+      if (key) this.pickGkey(key);
     });
     for (const id of ["kb-lighting", "kb-color", "kb-brightness-on", "kb-brightness", "kb-enabled"]) {
       $("#" + id).addEventListener("input", () => {
@@ -106,6 +99,19 @@ const Keyboard = {
       this.renderButtons();
       try { await invoke("apply_keyboard", { settings: this.draft }); }
       catch (e) { this.saving = false; toast(String(e), true); this.renderButtons(); }
+    });
+  },
+
+  pickGkey(key) {
+    if (!key || !this.draft) return;
+    const bank = this.draft.profile.banks[this.bank] ??= {};
+    openPickerFor({
+      label: key, sub: `G915 · ${this.bank}`, dance: true,
+      get: () => bank[key],
+      set: (action) => { if (action == null) delete bank[key]; else bank[key] = action; this.changed(); },
+      macros: () => this.draft.profile.macros,
+      newMacro: () => this.editor.add(),
+      openMacros: () => { $("#kb-macros").open = true; this.editor.render(); $("#kb-macro-edit").scrollIntoView({ block: "nearest" }); },
     });
   },
 
@@ -145,23 +151,16 @@ const Keyboard = {
     $("#kb-per-key").disabled = (!supported && !this.draft.per_key_enabled) || busy;
     const base = this.draft.color || $("#kb-color").value;
     const label = (key) => ({ Logo: "G logo", Brightness: "☀" }[key] || KEY_LABELS[key] || key);
-    const keyButton = (key, text, units = 1) => {
+    const keyButton = (key, text, position, classes) => {
       const color = this.draft.key_colors[key] || base;
       const rgb = /^#[0-9a-f]{6}$/i.test(color) ? color : "#1E56E4";
       const value = parseInt(rgb.slice(1), 16);
       const bright = 0.2126 * (value >> 16) + 0.7152 * ((value >> 8) & 255) + 0.0722 * (value & 255);
       return `<button type="button" data-color-key="${esc(key)}" aria-pressed="${this.colorSelection.has(key)}"
-        class="${this.colorSelection.has(key) ? "selected" : ""}" style="flex:${units};--paint:${rgb};--paint-text:${bright > 145 ? "#111827" : "#ffffff"}"
+        class="${classes} ${this.colorSelection.has(key) ? "selected" : ""}" style="${position}--paint:${rgb};--paint-text:${bright > 145 ? "#111827" : "#ffffff"}"
         title="${esc(key + " · " + rgb + (this.draft.key_colors[key] ? " · Individual color" : " · Base color"))}" ${!supported || !available.has(key) || busy ? "disabled" : ""}>${esc(text || label(key))}</button>`;
     };
-    const row = (keys) => `<div class="kb-color-row">${keys.map(([key, text, , units]) => keyButton(key, text, units)).join("")}</div>`;
-    const special = ["G1", "G2", "G3", "G4", "G5", "Logo", "Brightness", "MediaPrevious", "MediaPlayPause", "MediaNext", "VolumeMute"].map((key) => [key, label(key)]);
-    const functions = [["Escape", "Esc"], ...Array.from({ length: 12 }, (_, i) => [`F${i + 1}`, `F${i + 1}`]), ["PrintScreen", "PrtSc"], ["ScrollLock", "ScrLk"], ["Pause", "Pause"]];
-    const extra = [["Insert", "Home", "PageUp"], ["Delete", "End", "PageDown"],
-      ["NumLock", "NumpadDivide", "NumpadMultiply", "NumpadSubtract"], ["Numpad7", "Numpad8", "Numpad9", "NumpadAdd"],
-      ["Numpad4", "Numpad5", "Numpad6", "NumpadEnter"], ["Numpad1", "Numpad2", "Numpad3"], ["Numpad0", "NumpadDecimal"]];
-    const padLabel = { NumLock: "Num", NumpadDivide: "/", NumpadMultiply: "*", NumpadSubtract: "−", NumpadAdd: "+", NumpadEnter: "↵", NumpadDecimal: "." };
-    $("#kb-color-layout").innerHTML = `<div class="kb-color-board">${row(special)}<div class="kb-color-sections"><div>${row(functions)}${KEYBOARD_ROWS.map(row).join("")}</div><div>${extra.map((keys) => row(keys.map((key) => [key, padLabel[key] || (key.startsWith("Numpad") ? key.slice(6) : label(key))]))).join("")}</div></div></div>`;
+    $("#kb-color-layout").innerHTML = G915Layout.render(keyButton);
     $("#kb-paint-selection").textContent = this.colorSelection.size ? `${this.colorSelection.size} selected: ${[...this.colorSelection].slice(0, 12).map(label).join(", ")}${this.colorSelection.size > 12 ? "…" : ""}` : "No keys selected";
     $("#kb-painted-count").textContent = `${Object.keys(this.draft.key_colors).length} keys with custom colors${this.draft.per_key_enabled ? "" : " · disabled"}`;
     $$("#kb-paint-apply, #kb-paint-reset").forEach((b) => { b.disabled = !supported || !this.colorSelection.size || busy; });
@@ -183,15 +182,20 @@ const Keyboard = {
   renderRegular() {
     if (!this.draft) return;
     const assignments = this.draft.regular_keys;
-    const row = (keys) => `<div class="kb-regular-row">${keys.map(([key, label, , units = 1]) =>
-      `<button type="button" data-regular="${esc(key)}" class="${assignments[key] ? "assigned" : ""}" style="flex:${units}" title="${esc(key + (assignments[key] ? " → " + actionLabel(assignments[key]) : " · Default"))}">${esc(label || key)}</button>`).join("")}</div>`;
-    $("#kb-regular-layout").innerHTML = row([["Escape", "Esc"], ...Array.from({ length: 12 }, (_, i) => [`F${i + 1}`, `F${i + 1}`])]) + KEYBOARD_ROWS.map(row).join("");
+    const bank = this.draft.profile.banks[this.bank] || {};
+    $("#kb-regular-layout").innerHTML = G915Layout.render((key, label, position, classes) => {
+      const gkey = /^G[1-5]$/.test(key);
+      if (["Logo", "Brightness"].includes(key)) return `<span class="${classes} g915-hardware" style="${position}" title="${esc(key)}">${esc(label)}</span>`;
+      const action = gkey ? bank[key] : assignments[key];
+      const disabled = !this.status?.[gkey ? "gkeys_supported" : "regular_supported"] || this.editor.recording || this.editor.recordBusy;
+      return `<button type="button" ${gkey ? "data-key" : "data-regular"}="${esc(key)}" class="${classes} ${action ? "assigned" : ""}" style="${position}" title="${esc(key + (gkey ? " · " + this.bank : "") + (action ? " → " + actionLabel(action) : " · Default"))}" ${disabled ? "disabled" : ""}>${esc(label)}</button>`;
+    });
     $("#kb-regular-list").innerHTML = Object.entries(assignments).map(([key, action]) =>
       `<div class="kb-regular-assignment"><button type="button" data-regular="${esc(key)}"><b>${esc(KEY_LABELS[key] || key)}</b> → ${esc(actionLabel(action))}</button><button type="button" data-restore="${esc(key)}" class="ghost">Restore default</button></div>`).join("") || '<p>No regular-key overrides.</p>';
     $("#kb-regular-state").textContent = !this.status?.regular_supported ? "Windows only" : this.status?.regular_active ? "Active" : "Paused / disabled";
     $("#kb-regular-pause").disabled = !this.status?.regular_active;
     $("#kb-regular-enabled").disabled = !this.status?.regular_supported && !this.draft.regular_enabled;
-    $$("#kb-regular-layout button, #kb-regular-list button, #kb-regular-add, #kb-regular-source").forEach((b) => { b.disabled = !this.status?.regular_supported || this.editor.recording || this.editor.recordBusy; });
+    $$("#kb-regular-list button, #kb-regular-add, #kb-regular-source").forEach((b) => { b.disabled = !this.status?.regular_supported || this.editor.recording || this.editor.recordBusy; });
     if (!this.dirty) $("#kb-regular-enabled").checked = !!this.draft.regular_enabled;
   },
 

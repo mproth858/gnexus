@@ -927,3 +927,15 @@ pour éviter une boucle de notifications.
 Le dessin de `ui/keyboard.js` permet sélection multiple, couleur du groupe,
 retour à la base, sélection WASD et effacement de la peinture. Les noms suivent
 la disposition affichée ; la position physique détermine toujours la LED.
+
+
+Les vues couleurs et affectations partagent `ui/g915-layout.js`, un plan physique
+à coordonnées du G915 original plein format, d'après la galerie officielle et
+le guide Logitech 65840 (pages 6 et 10). G1–G5 forment une colonne à gauche ;
+les quatre commandes multimédias sont sous la molette, en haut à droite.
+Les groupes F, navigation, flèches et pavé numérique gardent leurs espaces et
+leurs touches larges/hautes ; Ctrl fait 1,5 unité et Espace 5,75 unités.
+Les variantes ANSI/ISO conservent les noms physiques et les légendes choisies.
+Les boutons M, liaison et jeu, les voyants et la molette sont des repères visuels,
+sans promesse de réglage RGB. Dans la vue affectations, cliquer une touche G
+ouvre le sélecteur de la banque M active, distinct des remappages Windows.
