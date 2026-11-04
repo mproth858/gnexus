@@ -12,3 +12,5 @@ pub mod gamepad;
 pub mod injector;
 pub mod media;
 pub mod recorder;
+
+pub mod temperatures;

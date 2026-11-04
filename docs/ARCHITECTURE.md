@@ -989,3 +989,31 @@ IDs and user-created names retain their existing meanings.
 assignment categories, macro panes and mouse controls for untranslated labels,
 including hidden dialogs and accessibility attributes. The G915 interaction
 smoke test continues to cover profile switching, mappings, lighting and capture.
+
+
+## G13 temperature applet
+
+`Temperatures` follows `System` in the BD cycle. Its first page shows CPU and
+GPU core temperature in Celsius; L1/L2 browse other readings in pairs, and L3
+returns to CPU/GPU. Missing readings are `--`, never inferred ACPI values.
+CPU package/Tctl-Tdie is preferred over individual CCD/core readings; GPU
+hotspot and memory readings stay separate from GPU core temperature.
+
+`lcd/temperatures.rs` polls on a separate worker every two seconds, only while
+the applet is active and the G13 is connected. The engine consumes a cached
+snapshot and never waits for driver or WMI calls. Snapshots expire after six
+seconds. Provider reads and applet navigation have independent tests.
+
+`platform/windows/temperatures.rs` loads NVIDIA NVML from absolute driver paths
+for direct GPU readings. CPU/other sensors use the local timestamped JSON
+published by `tools/temperature-bridge.ps1`, or legacy Libre/Open Hardware
+Monitor WMI namespaces. Modern Libre Hardware Monitor 0.9.6 removed WMI; the
+bridge loads its official .NET Framework library and publishes only sensor
+readings, with no HTTP server or fan/clock commands. Reading CPU registers
+requires administrator access and the separate PawnIO driver bundled in the
+official monitor. G Nexus does not install drivers or elevate itself.
+
+Linux reads standard `/sys/class/hwmon` temperature inputs through its platform
+module. `cargo run -p g13-daemon --bin temperature_probe` reports the exact source
+inventory and selected CPU/GPU readings, without opening a Logitech HID handle.
+See [TEMPERATURES.md](TEMPERATURES.md) for setup and available sensor categories.

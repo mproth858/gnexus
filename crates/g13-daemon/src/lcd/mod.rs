@@ -3,7 +3,7 @@
 //! ```text
 //!  engine thread ── LcdManager::tick (every engine tick, renders at ≤ 4 Hz)
 //!                     ├─ BD (round button): next applet
-//!                     │    Profil → Profils → Média → Horloge → Système
+//!                     │    Profile → Profiles → Media → Clock → System → Temperatures
 //!                     ├─ L1–L4: keys of the current applet (labels at the bottom)
 //!                     ├─ banner (1.5 s) on applet / profile / menu change
 //!                     └─ Engine::draw_lcd ─▶ DeviceCommand::DrawLcd + UiEvent::LcdFrame
@@ -14,6 +14,7 @@
 //! Like Logitech Gaming Software. Frames are only sent when they change.
 
 pub mod applets;
+mod temperatures;
 
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::{Receiver, RecvTimeoutError, Sender, channel};
@@ -59,6 +60,7 @@ pub struct LcdContext<'a> {
     /// Now playing, with the position extrapolated while playing.
     pub media: Option<MediaInfo>,
     pub sys: SysStats,
+    pub temperatures: Vec<crate::platform::temperatures::Reading>,
     /// Mouse battery (percent, charging) while a mouse is connected.
     pub mouse_battery: Option<(u8, bool)>,
     /// Increases at every rendered frame (scrolling).
@@ -101,6 +103,7 @@ pub trait Applet: Send {
     fn wants_media(&self) -> bool {
         false
     }
+    fn wants_temperatures(&self) -> bool { false }
     fn render(&mut self, lcd: &mut G13LcdBuffer, ctx: &LcdContext<'_>);
 }
 
@@ -120,6 +123,7 @@ pub struct LcdManager {
     media_cmd: Sender<MediaCommand>,
     sys: System,
     sys_stats: SysStats,
+    temperatures: temperatures::Monitor,
     sys_next: Instant,
     mouse_battery: Option<(u8, bool)>,
 }
@@ -145,6 +149,7 @@ impl LcdManager {
             media_cmd,
             sys: System::new(),
             sys_stats: SysStats::default(),
+            temperatures: temperatures::Monitor::new(),
             sys_next: now,
             mouse_battery: None,
         }
@@ -182,6 +187,7 @@ impl LcdManager {
             now: Local::now(),
             media: current_media(&self.media),
             sys: self.sys_stats,
+            temperatures: self.temperatures.readings(),
             mouse_battery: self.mouse_battery,
             frame: self.frame,
         }
@@ -260,6 +266,7 @@ impl LcdManager {
         }
         // the media thread only works while its applet is on screen
         self.media_wanted.store(self.applets[self.current].wants_media(), Ordering::Relaxed);
+        self.temperatures.set_active(engine.is_connected() && self.applets[self.current].wants_temperatures());
 
         let now = Instant::now();
         if !redraw && now < self.next {

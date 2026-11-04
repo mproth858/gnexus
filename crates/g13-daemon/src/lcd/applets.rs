@@ -1,5 +1,5 @@
-//! The built-in applets, in BD cycle order: Profil, Profils, Média,
-//! Horloge, Système.
+//! The built-in applets, in BD cycle order: Profile, Profiles, Media,
+//! Clock, System, Temperatures.
 
 use chrono::{Datelike, Timelike};
 use g13_core::{G13LcdBuffer, LCD_HEIGHT, LCD_WIDTH};
@@ -8,7 +8,7 @@ use super::{Applet, LcdAction, LcdContext};
 use crate::platform::{MediaCommand, PlaybackStatus};
 
 pub fn all() -> Vec<Box<dyn Applet>> {
-    vec![Box::new(Status), Box::new(Profiles::default()), Box::new(Media), Box::new(Clock), Box::new(SystemMon)]
+    vec![Box::new(Status), Box::new(Profiles::default()), Box::new(Media), Box::new(Clock), Box::new(SystemMon), Box::new(Temperatures::default())]
 }
 
 /// Index of the profile list in [`all`].
@@ -310,6 +310,55 @@ impl Applet for SystemMon {
     }
 }
 
+// ---- Temperatures: CPU/GPU first, additional sensors in pairs -----------------
+
+#[derive(Default)]
+pub struct Temperatures { page: usize }
+
+impl Temperatures {
+    fn pages(ctx: &LcdContext<'_>) -> Vec<Vec<(String, Option<f32>)>> {
+        use crate::platform::temperatures::{Kind, primary};
+        let cpu = primary(&ctx.temperatures, Kind::Cpu);
+        let gpu = primary(&ctx.temperatures, Kind::Gpu);
+        let mut pages = vec![vec![("CPU".into(), cpu.map(|r| r.celsius)), ("GPU".into(), gpu.map(|r| r.celsius))]];
+        let extra: Vec<_> = ctx.temperatures.iter().filter(|r| r.valid() && Some(r.id.as_str()) != cpu.map(|r| r.id.as_str()) && Some(r.id.as_str()) != gpu.map(|r| r.id.as_str()))
+            .map(|r| {
+                let label = match r.kind {
+                    Kind::Cpu => format!("CPU {}", r.name),
+                    Kind::Gpu => format!("GPU {}", r.name.strip_prefix("GPU ").unwrap_or(&r.name)),
+                    Kind::Other => format!("{} {}", r.hardware, r.name),
+                };
+                (label, Some(r.celsius))
+            }).collect();
+        for pair in extra.chunks(2) { pages.push(pair.to_vec()); }
+        pages
+    }
+}
+impl Applet for Temperatures {
+    fn title(&self) -> &'static str { "Temperatures" }
+    fn wants_temperatures(&self) -> bool { true }
+    fn keys(&self) -> [&'static str; 4] { ["PREV", "NEXT", "HOME", ""] }
+    fn on_show(&mut self, _ctx: &LcdContext<'_>) { self.page = 0; }
+    fn on_key(&mut self, index: usize, ctx: &LcdContext<'_>) -> LcdAction {
+        let count = Self::pages(ctx).len();
+        self.page = self.page.min(count - 1);
+        match index { 0 => self.page = (self.page + count - 1) % count, 1 => self.page = (self.page + 1) % count, 2 => self.page = 0, _ => {} }
+        LcdAction::None
+    }
+    fn render(&mut self, lcd: &mut G13LcdBuffer, ctx: &LcdContext<'_>) {
+        let pages = Self::pages(ctx);
+        self.page = self.page.min(pages.len() - 1);
+        header(lcd, "TEMPERATURES", &format!("{}/{} C", self.page + 1, pages.len()));
+        for (i, (label, value)) in pages[self.page].iter().enumerate() {
+            let y = 12 + i * 12;
+            marquee(lcd, 2, y, 111, label, ctx.frame);
+            let text = value.map(|c| format!("{c:.1} C")).unwrap_or_else(|| "-- C".into());
+            let width = G13LcdBuffer::text_width(&text, 1);
+            lcd.draw_text(W.saturating_sub(width + 2), y, &text);
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -333,6 +382,7 @@ mod tests {
             ],
             now: chrono::Local.with_ymd_and_hms(2026, 10, 16, 21, 47, 5).unwrap(),
             media,
+            temperatures: Vec::new(),
             sys: SysStats { cpu: 42.0, mem_used: 8 << 30, mem_total: 32 << 30 },
             mouse_battery: Some((93, true)),
             frame: 0,
@@ -341,6 +391,36 @@ mod tests {
 
     fn lit(lcd: &G13LcdBuffer) -> usize {
         lcd.pixels().iter().map(|b| b.count_ones() as usize).sum()
+    }
+
+    #[test]
+    fn temperatures_follow_system_and_browse_optional_sensors() {
+        use crate::platform::temperatures::{Kind, Reading};
+        let names: Vec<_> = all().iter().map(|a| a.title()).collect();
+        assert_eq!(&names[names.len() - 2..], &["System", "Temperatures"]);
+        let mut context = ctx(None, None);
+        context.temperatures = vec![
+            Reading { id: "nvml:0".into(), name: "GPU Core".into(), hardware: "NVIDIA".into(), kind: Kind::Gpu, celsius: 60.0 },
+            Reading { id: "hotspot".into(), name: "GPU Hot Spot".into(), hardware: "NVIDIA".into(), kind: Kind::Gpu, celsius: 75.0 },
+            Reading { id: "ssd".into(), name: "Composite".into(), hardware: "SSD".into(), kind: Kind::Other, celsius: 42.0 },
+        ];
+        let pages = Temperatures::pages(&context);
+        assert_eq!(pages[0], vec![("CPU".into(), None), ("GPU".into(), Some(60.0))]);
+        assert_eq!(pages.len(), 2);
+        let mut applet = Temperatures::default();
+        applet.on_key(1, &context);
+        assert_eq!(applet.page, 1);
+        applet.on_key(1, &context);
+        assert_eq!(applet.page, 0);
+        applet.on_key(0, &context);
+        assert_eq!(applet.page, 1);
+        applet.on_key(2, &context);
+        assert_eq!(applet.page, 0);
+        // A lost provider removes extra pages without invalid indexes or panic.
+        applet.on_key(1, &context);
+        context.temperatures.clear();
+        applet.render(&mut G13LcdBuffer::new(), &context);
+        assert_eq!(applet.page, 0);
     }
 
     #[test]

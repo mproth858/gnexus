@@ -20,3 +20,5 @@ pub fn raise_priority() {
         log::warn!("could not raise the process priority");
     }
 }
+
+pub mod temperatures;

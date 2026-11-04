@@ -133,7 +133,7 @@ const TR = {
   "Choisir la couleur": ["Choose the color", "Farbe wählen", "Scegli il colore", "Elegir el color"],
   "COULEUR": ["COLOR", "FARBE", "COLORE", "COLOR"],
   "BD — applet suivant sur l'écran (Profil, Profils, Média, Horloge, Système)": [
-    "BD — next applet on the screen (Profile, Profiles, Media, Clock, System)",
+    "BD — next applet on the screen (Profile, Profiles, Media, Clock, System, Temperatures)",
     "BD — nächstes Applet auf dem Display (Profil, Profile, Medien, Uhr, System)",
     "BD — applet successivo sullo schermo (Profilo, Profili, Media, Orologio, Sistema)",
     "BD — siguiente applet en la pantalla (Perfil, Perfiles, Multimedia, Reloj, Sistema)"],

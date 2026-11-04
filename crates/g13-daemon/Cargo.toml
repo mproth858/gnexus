@@ -62,6 +62,8 @@ g13-dsp = { workspace = true }
 [dev-dependencies]
 
 [target.'cfg(windows)'.dependencies]
+# Read-only CPU/board sensors from Libre Hardware Monitor (GPU uses NVML).
+wmi = "0.18.4"
 # the equalizer's Windows audio effect (settings file, setup)
 g13-apo = { path = "../g13-apo" }
 vigem-client = "0.1.4"

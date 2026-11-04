@@ -415,3 +415,5 @@ pub fn default_media_provider() -> Box<dyn MediaProvider> {
         Box::new(mock::NullMediaProvider)
     }
 }
+
+pub mod temperatures;
