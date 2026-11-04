@@ -6,6 +6,7 @@ const Keyboard = {
   bank: "M1",
   dirty: false,
   saving: false,
+  colorSelection: new Set(),
 
   init() {
     this.editor = new MacroEditor({
@@ -13,7 +14,7 @@ const Keyboard = {
       get: () => this.draft?.profile.macros,
       set: (macros) => { this.draft.profile.macros = macros; },
       changed: () => this.changed(),
-      recordingChanged: () => { this.renderRegular(); this.renderButtons(); },
+      recordingChanged: () => { this.renderRegular(); this.renderLighting(); this.renderButtons(); },
       renamed: (old, name) => this.rebind(old, name),
       deleted: (name) => this.rebind(name, null),
     });
@@ -22,6 +23,34 @@ const Keyboard = {
       if (bank) { this.bank = bank; this.renderKeys(); }
     });
     $("#kb-regular-source").innerHTML = ALL_CODES.map((key) => `<option value="${esc(key)}">${esc(KEY_LABELS[key] || key)} (${esc(key)})</option>`).join("");
+    $("#kb-per-key").addEventListener("change", (e) => {
+      this.draft.per_key_enabled = e.target.checked;
+      if (e.target.checked) this.enableLighting();
+      this.changed();
+    });
+    $("#kb-color-layout").addEventListener("click", (e) => {
+      const key = e.target.closest("[data-color-key]")?.dataset.colorKey;
+      if (!key) return;
+      if (this.colorSelection.has(key)) this.colorSelection.delete(key); else this.colorSelection.add(key);
+      this.renderLighting();
+    });
+    $("#kb-paint-apply").addEventListener("click", () => {
+      this.enableLighting();
+      this.draft.per_key_enabled = true;
+      for (const key of this.colorSelection) this.draft.key_colors[key] = $("#kb-paint-color").value.toUpperCase();
+      this.changed();
+    });
+    $("#kb-paint-reset").addEventListener("click", () => {
+      for (const key of this.colorSelection) delete this.draft.key_colors[key];
+      this.changed();
+    });
+    $("#kb-paint-wasd").addEventListener("click", () => {
+      this.colorSelection = new Set(["W", "A", "S", "D"].filter((key) => this.status?.color_keys?.includes(key)));
+      this.renderLighting();
+    });
+    $("#kb-paint-all").addEventListener("click", () => { this.colorSelection = new Set(this.status?.color_keys || []); this.renderLighting(); });
+    $("#kb-paint-none").addEventListener("click", () => { this.colorSelection.clear(); this.renderLighting(); });
+    $("#kb-paint-clear").addEventListener("click", () => { this.draft.key_colors = {}; this.changed(); });
     $("#kb-regular-enabled").addEventListener("change", (e) => { this.draft.regular_enabled = e.target.checked; this.changed(); });
     $("#kb-regular-add").addEventListener("click", () => this.pickRegular($("#kb-regular-source").value));
     $("#kb-regular-layout").addEventListener("click", (e) => {
@@ -55,6 +84,7 @@ const Keyboard = {
       $("#" + id).addEventListener("input", () => {
         if (!this.draft) return;
         this.draft.color = $("#kb-lighting").checked ? $("#kb-color").value : null;
+        if (this.draft.color == null) this.draft.per_key_enabled = false;
         this.draft.brightness = $("#kb-brightness-on").checked ? +$("#kb-brightness").value : null;
         this.draft.enabled = $("#kb-enabled").checked;
         $("#kb-brightness-value").textContent = $("#kb-brightness").value + "%";
@@ -65,6 +95,8 @@ const Keyboard = {
       this.draft = structuredClone(this.status.settings);
       this.draft.regular_keys ??= {};
       this.draft.regular_enabled ??= false;
+      this.draft.per_key_enabled ??= false;
+      this.draft.key_colors ??= {};
       this.dirty = false;
       this.render();
     });
@@ -96,7 +128,46 @@ const Keyboard = {
     }
   },
 
-  changed() { this.dirty = true; this.renderKeys(); this.renderRegular(); this.renderButtons(); },
+  changed() { this.dirty = true; this.renderKeys(); this.renderRegular(); this.renderLighting(); this.renderButtons(); },
+
+  enableLighting() {
+    this.draft.color ??= $("#kb-color").value || "#1E56E4";
+    $("#kb-lighting").checked = true;
+  },
+
+  renderLighting() {
+    if (!this.draft) return;
+    const available = new Set(this.status?.color_keys || []);
+    for (const key of this.colorSelection) if (!available.has(key)) this.colorSelection.delete(key);
+    const busy = this.editor.recording || this.editor.recordBusy;
+    const supported = !!this.status?.per_key_supported;
+    $("#kb-per-key").checked = !!this.draft.per_key_enabled;
+    $("#kb-per-key").disabled = (!supported && !this.draft.per_key_enabled) || busy;
+    const base = this.draft.color || $("#kb-color").value;
+    const label = (key) => ({ Logo: "G logo", Brightness: "☀" }[key] || KEY_LABELS[key] || key);
+    const keyButton = (key, text, units = 1) => {
+      const color = this.draft.key_colors[key] || base;
+      const rgb = /^#[0-9a-f]{6}$/i.test(color) ? color : "#1E56E4";
+      const value = parseInt(rgb.slice(1), 16);
+      const bright = 0.2126 * (value >> 16) + 0.7152 * ((value >> 8) & 255) + 0.0722 * (value & 255);
+      return `<button type="button" data-color-key="${esc(key)}" aria-pressed="${this.colorSelection.has(key)}"
+        class="${this.colorSelection.has(key) ? "selected" : ""}" style="flex:${units};--paint:${rgb};--paint-text:${bright > 145 ? "#111827" : "#ffffff"}"
+        title="${esc(key + " · " + rgb + (this.draft.key_colors[key] ? " · Individual color" : " · Base color"))}" ${!supported || !available.has(key) || busy ? "disabled" : ""}>${esc(text || label(key))}</button>`;
+    };
+    const row = (keys) => `<div class="kb-color-row">${keys.map(([key, text, , units]) => keyButton(key, text, units)).join("")}</div>`;
+    const special = ["G1", "G2", "G3", "G4", "G5", "Logo", "Brightness", "MediaPrevious", "MediaPlayPause", "MediaNext", "VolumeMute"].map((key) => [key, label(key)]);
+    const functions = [["Escape", "Esc"], ...Array.from({ length: 12 }, (_, i) => [`F${i + 1}`, `F${i + 1}`]), ["PrintScreen", "PrtSc"], ["ScrollLock", "ScrLk"], ["Pause", "Pause"]];
+    const extra = [["Insert", "Home", "PageUp"], ["Delete", "End", "PageDown"],
+      ["NumLock", "NumpadDivide", "NumpadMultiply", "NumpadSubtract"], ["Numpad7", "Numpad8", "Numpad9", "NumpadAdd"],
+      ["Numpad4", "Numpad5", "Numpad6", "NumpadEnter"], ["Numpad1", "Numpad2", "Numpad3"], ["Numpad0", "NumpadDecimal"]];
+    const padLabel = { NumLock: "Num", NumpadDivide: "/", NumpadMultiply: "*", NumpadSubtract: "−", NumpadAdd: "+", NumpadEnter: "↵", NumpadDecimal: "." };
+    $("#kb-color-layout").innerHTML = `<div class="kb-color-board">${row(special)}<div class="kb-color-sections"><div>${row(functions)}${KEYBOARD_ROWS.map(row).join("")}</div><div>${extra.map((keys) => row(keys.map((key) => [key, padLabel[key] || (key.startsWith("Numpad") ? key.slice(6) : label(key))]))).join("")}</div></div></div>`;
+    $("#kb-paint-selection").textContent = this.colorSelection.size ? `${this.colorSelection.size} selected: ${[...this.colorSelection].slice(0, 12).map(label).join(", ")}${this.colorSelection.size > 12 ? "…" : ""}` : "No keys selected";
+    $("#kb-painted-count").textContent = `${Object.keys(this.draft.key_colors).length} keys with custom colors${this.draft.per_key_enabled ? "" : " · disabled"}`;
+    $$("#kb-paint-apply, #kb-paint-reset").forEach((b) => { b.disabled = !supported || !this.colorSelection.size || busy; });
+    $$("#kb-paint-wasd, #kb-paint-all, #kb-paint-none, #kb-paint-color").forEach((b) => { b.disabled = !supported || busy; });
+    $("#kb-paint-clear").disabled = !Object.keys(this.draft.key_colors).length || busy;
+  },
 
   pickRegular(key) {
     if (!this.draft || !this.status?.regular_supported) return;
@@ -136,6 +207,8 @@ const Keyboard = {
     this.draft.profile.macros ??= {};
     this.draft.regular_keys ??= {};
     this.draft.regular_enabled ??= false;
+    this.draft.per_key_enabled ??= false;
+    this.draft.key_colors ??= {};
     this.render();
   },
 
@@ -182,6 +255,7 @@ const Keyboard = {
     }
     this.renderKeys();
     this.renderRegular();
+    this.renderLighting();
     this.renderButtons();
   },
 };

@@ -160,9 +160,24 @@
     <fieldset id="kb-controls">
       <legend>Lighting</legend>
       <label><input id="kb-lighting" type="checkbox"> Control lighting</label>
-      <label>Color <input id="kb-color" type="color" value="#1e56e4"></label>
+      <label>Base color <input id="kb-color" type="color" value="#1e56e4"></label>
       <label><input id="kb-brightness-on" type="checkbox"> Control brightness</label>
       <label>Brightness <input id="kb-brightness" type="range" min="0" max="100" value="100"><output id="kb-brightness-value">100%</output></label>
+      <details id="kb-key-colors"><summary>Per-key colors</summary>
+        <label><input id="kb-per-key" type="checkbox"> Use individual key colors</label>
+        <p>Select one or more keys, choose a color, then apply it to the selection. Unassigned keys use the base color above. Changes reach the keyboard when you click Apply and save.</p>
+        <div class="kb-paint-toolbar">
+          <label>Color <input id="kb-paint-color" type="color" value="#ff0000"></label>
+          <button id="kb-paint-apply" class="ghost" type="button">Color selected keys</button>
+          <button id="kb-paint-reset" class="ghost" type="button">Use base color</button>
+          <button id="kb-paint-wasd" class="ghost" type="button">Select WASD</button>
+          <button id="kb-paint-all" class="ghost" type="button">Select all</button>
+          <button id="kb-paint-none" class="ghost" type="button">Clear selection</button>
+        </div>
+        <p id="kb-paint-selection" role="status">No keys selected</p>
+        <div id="kb-color-layout" class="kb-color-layout"></div>
+        <div class="kb-paint-footer"><span id="kb-painted-count"></span><button id="kb-paint-clear" class="ghost" type="button">Clear all individual colors</button></div>
+      </details>
       <hr>
       <label><input id="kb-enabled" type="checkbox"> Enable G-key remapping while G Nexus runs</label>
       <div class="kb-banks" id="kb-banks"><button data-bank="M1" class="on">M1</button><button data-bank="M2">M2</button><button data-bank="M3">M3</button></div>

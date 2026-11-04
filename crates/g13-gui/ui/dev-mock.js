@@ -42,8 +42,9 @@
         "LeftCtrl+Tab", "LeftCtrl+0", "LeftCtrl+Z", "LeftCtrl+X", null, null, null, null, null] },
   };
   let keyboard = { connected: true, name: "G915", transport: "LIGHTSPEED", voltage_mv: 3998, regular_supported: true, regular_active: false,
+    per_key_supported: true, get color_keys() { return [...ALL_CODES.filter(key => !/^F(1[3-9]|2[0-4])$/.test(key) && !["VolumeUp", "VolumeDown", "MediaStop"].includes(key)), "G1", "G2", "G3", "G4", "G5", "Logo", "Brightness"]; },
     lighting_supported: true, brightness_supported: true, gkeys_supported: true, bank: "M1", held: 0, revision: 0,
-    settings: { enabled: false, color: null, brightness: null, regular_enabled: false, regular_keys: {},
+    settings: { enabled: false, color: null, brightness: null, regular_enabled: false, regular_keys: {}, per_key_enabled: false, key_colors: {},
       profile: { name: "G915", banks: { M1: {}, M2: {}, M3: {} }, macros: {} } } };
   const commands = {
     apply_keyboard: ({ settings }) => {

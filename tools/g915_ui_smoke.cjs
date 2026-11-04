@@ -49,6 +49,40 @@ const { chromium } = require('playwright');
     await page.locator('#kb-save').click();
     await page.waitForFunction(() => !Keyboard.saving);
     assert.deepEqual(await page.evaluate(() => Keyboard.status.settings.regular_keys), {});
+    // Per-key painting: group selection, individual colors, save, reset and mode switching.
+    await page.locator('#kb-key-colors summary').click();
+    await page.locator('#kb-paint-wasd').click();
+    assert.match(await page.locator('#kb-paint-selection').innerText(), /4 selected/);
+    await page.locator('#kb-paint-color').fill('#ff0000');
+    await page.locator('#kb-paint-apply').click();
+    assert.equal(await page.locator('#kb-per-key').isChecked(), true);
+    assert.equal(await page.locator('#kb-lighting').isChecked(), true);
+    for (const key of ['W', 'A', 'S', 'D']) assert.equal(await page.evaluate(k => Keyboard.draft.key_colors[k], key), '#FF0000');
+    await page.locator('#kb-paint-none').click();
+    await page.locator('#kb-color-layout [data-color-key="G1"]').click();
+    await page.locator('#kb-color-layout [data-color-key="Logo"]').click();
+    await page.locator('#kb-paint-color').fill('#00ff00');
+    await page.locator('#kb-paint-apply').click();
+    await page.locator('#kb-save').click();
+    await page.waitForFunction(() => !Keyboard.saving);
+    assert.equal(await page.evaluate(() => Keyboard.status.settings.key_colors.Logo), '#00FF00');
+    assert.equal(await page.evaluate(() => Keyboard.status.settings.key_colors.G1), '#00FF00');
+    if (process.env.G915_COLOR_SCREENSHOT) {
+      await page.locator('#kb-key-colors').scrollIntoViewIfNeeded();
+      await page.screenshot({ path: process.env.G915_COLOR_SCREENSHOT });
+    }
+    await page.locator('#kb-paint-reset').click();
+    assert.equal(await page.evaluate(() => Keyboard.draft.key_colors.Logo), undefined);
+    await page.locator('#kb-reset').click();
+    assert.equal(await page.evaluate(() => Keyboard.draft.key_colors.Logo), '#00FF00');
+    await page.locator('#kb-lighting').uncheck();
+    assert.equal(await page.locator('#kb-per-key').isChecked(), false);
+    assert.equal(await page.evaluate(() => Object.keys(Keyboard.draft.key_colors).length), 6, 'disabling lighting preserves stored paint');
+    await page.locator('#kb-reset').click();
+    await page.locator('#kb-paint-clear').click();
+    assert.deepEqual(await page.evaluate(() => Keyboard.draft.key_colors), {});
+    await page.locator('#kb-save').click();
+    await page.waitForFunction(() => !Keyboard.saving);
     // Record an already-saved macro while device status updates arrive.
     await page.locator('#kb-macro-edit [data-act="record"]').click();
     await page.waitForFunction(() => Keyboard.editor.recording && Keyboard.editor.captureCount === 4);

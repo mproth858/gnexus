@@ -435,6 +435,18 @@ pub mod per_led {
         ids
     }
 
+    /// Keyboards page the bitmap in 14-byte chunks; replies echo [0, page].
+    /// Zone 0 is reserved. Keyboard IDs are not USB keyboard usages.
+    pub fn keyboard_led_ids(pages: &[[u8; 16]]) -> Result<Vec<u8>, String> {
+        if pages.len() != 3 { return Err("Three LED bitmap pages are required".into()); }
+        let mut bitmap = Vec::with_capacity(42);
+        for (page, data) in pages.iter().enumerate() {
+            if data[0] != 0 || data[1] != page as u8 { return Err("Invalid LED bitmap page reply".into()); }
+            bitmap.extend_from_slice(&data[2..]);
+        }
+        Ok((1..=254u8).filter(|id| bitmap[usize::from(*id) / 8] & (1 << (*id % 8)) != 0).collect())
+    }
+
     /// The fn 1 requests that set `leds` (at most 4 per request).
     pub fn set_requests(leds: &[(u8, [u8; 3])]) -> Vec<Vec<u8>> {
         leds.chunks(4).map(|c| c.iter().flat_map(|(id, rgb)| [*id, rgb[0], rgb[1], rgb[2]]).collect()).collect()
@@ -453,6 +465,19 @@ pub mod per_led {
             assert_eq!(reqs.len(), 2);
             assert_eq!(&reqs[0][..8], &[0, 1, 2, 3, 1, 4, 5, 6]);
             assert_eq!(reqs[1], vec![8, 9, 9, 9]);
+        }
+
+        #[test]
+        fn g915_bitmap_spans_three_pages_and_excludes_reserved_zero() {
+            // Captured from the user's C541 LIGHTSPEED receiver (G915, 8081 v2).
+            let first = [0, 0, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255];
+            let second = [0, 1, 0, 0, 0, 0, 0, 122, 0, 0, 240, 1, 0, 0, 4, 0];
+            let mut third = [0; 16]; third[1] = 2;
+            let ids = keyboard_led_ids(&[first, second, third]).unwrap();
+            assert!(!ids.contains(&0));
+            for id in [1, 23, 104, 111, 153, 155, 180, 184, 210] { assert!(ids.contains(&id), "missing {id}"); }
+            assert!(!ids.contains(&154));
+            assert!(keyboard_led_ids(&[first, first, third]).is_err());
         }
     }
 }

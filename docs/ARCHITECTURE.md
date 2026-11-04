@@ -906,3 +906,24 @@ Tests : décisions de suppression, répétition, modifications pendant un appui,
 modificateurs partagés, annulation des macros ; `remap-probe` vérifie le vrai
 chemin Win32 F24→F23. La page G915 propose un clavier cliquable, une liste des
 affectations et Restore default. Voir `docs/G915.md` pour les limites de portée.
+
+## Couleurs par touche du G915
+
+`keyboard/lighting.rs` convertit les noms physiques en identifiants de LED,
+distincts des usages HID. La découverte lit les trois pages 0x8081 et expose
+`color_keys` / `per_key_supported`. `KeyboardSettings::key_colors` est une table
+nom→couleur, activée par `per_key_enabled`. Elle est sauvegardée et restaurée
+avec le reste de `g915.json`.
+
+Chaque envoi prépare une image complète : les touches non personnalisées
+reprennent la couleur de base. Les paquets 0x8081 fn 1 portent quatre quadruplets
+LED/R/G/B et fn 7 valide seulement après succès de tous les paquets. Le premier
+envoi après la prise de contrôle est répété ; BUSY et les délais dépassés font
+l'objet de nouvelles tentatives bornées. La couleur de base et la luminosité
+continuent d'utiliser les fonctions existantes. Un événement 0x1D4B demandant
+une reconfiguration réapplique les réglages après réveil, avec temporisation
+pour éviter une boucle de notifications.
+
+Le dessin de `ui/keyboard.js` permet sélection multiple, couleur du groupe,
+retour à la base, sélection WASD et effacement de la peinture. Les noms suivent
+la disposition affichée ; la position physique détermine toujours la LED.

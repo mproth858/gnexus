@@ -12,6 +12,8 @@ use serde::{Deserialize, Serialize};
 
 use crate::{device::DeviceEvent, engine::Engine, mouse::Link, platform::InputInjector, profiles::{self, FileDto}};
 
+pub mod lighting;
+
 const GKEYS: u16 = 0x8010;
 const MKEYS: u16 = 0x8020;
 const BRIGHTNESS: u16 = 0x8040;
@@ -44,12 +46,17 @@ pub struct KeyboardSettings {
     pub regular_enabled: bool,
     #[serde(default)]
     pub regular_keys: std::collections::BTreeMap<String, crate::profiles::format::ActionDto>,
+    #[serde(default)]
+    pub per_key_enabled: bool,
+    #[serde(default)]
+    pub key_colors: std::collections::BTreeMap<String, String>,
 }
 
 impl Default for KeyboardSettings {
     fn default() -> Self {
         Self { enabled: false, color: None, brightness: None,
-            profile: FileDto { name: "G915".into(), ..FileDto::default() }, regular_enabled: false, regular_keys: Default::default() }
+            profile: FileDto { name: "G915".into(), ..FileDto::default() }, regular_enabled: false, regular_keys: Default::default(),
+            per_key_enabled: false, key_colors: Default::default() }
     }
 }
 
@@ -65,6 +72,7 @@ impl KeyboardSettings {
         if self.profile.stick.is_some() { return Err("G915 has no stick".into()); }
         profiles::from_dto(self.profile.clone()).map_err(|e| e.to_string())?;
         crate::remap::compile(&self.regular_keys, &self.profile.macros)?;
+        lighting::validate(self)?;
         Ok(())
     }
 }
@@ -87,6 +95,8 @@ pub struct KeyboardStatus {
     pub revision: u64,
     pub regular_supported: bool,
     pub regular_active: bool,
+    pub per_key_supported: bool,
+    pub color_keys: Vec<String>,
 }
 
 pub enum KeyboardCommand { Apply(Box<KeyboardSettings>), PauseRegular }
@@ -103,6 +113,9 @@ struct Keyboard {
     original_mode: Option<u8>,
     claimed: bool,
     diverted: bool,
+    per_key: Option<u8>,
+    leds: Vec<u8>,
+    wireless: Option<u8>,
 }
 
 fn find(api: &HidApi) -> Option<Keyboard> {
@@ -120,12 +133,17 @@ fn find(api: &HidApi) -> Option<Keyboard> {
                     let brightness = link.feature(BRIGHTNESS);
                     let battery = link.feature(BATTERY_VOLTAGE);
                     let onboard = link.feature(f::ONBOARD_PROFILES);
+                    let per_key = link.feature(f::per_led::FEATURE);
+                    let leds = per_key.and_then(|i| lighting::discover_leds(&link, i).ok()).unwrap_or_default();
+                    let color_keys = lighting::available_keys(&leds);
+                    let wireless = link.feature(0x1D4B);
                     let transport = if matches!(info.bus_type(), hidapi::BusType::Bluetooth) { "Bluetooth" }
                         else if index == DIRECT { "USB" } else { "LIGHTSPEED" };
                     return Some(Keyboard { link, status: KeyboardStatus { connected: true, name, transport: transport.into(),
                         product_id: info.product_id(), gkeys_supported: gkeys.is_some(), lighting_supported: rgb.is_some(),
-                        brightness_supported: brightness.is_some(), regular_supported: cfg!(windows), bank: "M1".into(), ..Default::default() },
-                        gkeys, mkeys, rgb, brightness, battery, onboard, original_mode: None, claimed: false, diverted: false });
+                        brightness_supported: brightness.is_some(), regular_supported: cfg!(windows), bank: "M1".into(),
+                        per_key_supported: rgb.is_some() && per_key.is_some() && !leds.is_empty(), color_keys, ..Default::default() },
+                        gkeys, mkeys, rgb, brightness, battery, onboard, original_mode: None, claimed: false, diverted: false, per_key, leds, wireless });
                 }
             }
             dev = link.dev;
@@ -158,6 +176,12 @@ impl Keyboard {
         if settings.enabled && self.gkeys.is_none() { return Err("G-key control is unavailable on this connection".into()); }
         if settings.color.is_some() && self.rgb.is_none() { return Err("Lighting control is unavailable on this connection".into()); }
         if settings.brightness.is_some() && self.brightness.is_none() { return Err("Brightness control is unavailable on this connection".into()); }
+        if settings.per_key_enabled && (self.per_key.is_none() || self.leds.is_empty()) {
+            return Err("Per-key lighting is unavailable on this connection".into());
+        }
+        // Validate every requested LED before taking control or changing any lights.
+        let frame = settings.color.as_ref().map(|color| lighting::frame(&self.leds, color,
+            if settings.per_key_enabled { Some(&settings.key_colors) } else { None })).transpose()?;
         self.release();
         if (settings.enabled || settings.color.is_some()) && let Some(i) = self.onboard {
             let mode = self.link.call(i, 2, &[])?[0];
@@ -184,6 +208,15 @@ impl Keyboard {
             self.link.call(i, 5, &[1, 3, 5])?;
             for (zone, effect) in effects {
                 self.link.call(i, 1, &f::rgb::cluster_effect(zone, effect, &f::rgb::LiveEffect::Static(color)))?;
+            }
+            // A complete frame also clears stale per-key colors when returning
+            // to one base color. Commit only after every write succeeded.
+            if let (Some(per_key), Some(frame)) = (self.per_key, &frame)
+                && !frame.is_empty() {
+                lighting::write_frame(&self.link, per_key, frame)?;
+                // Replay the first frame after a software-control claim: the
+                // firmware may still be leaving onboard mode during the first send.
+                lighting::write_frame(&self.link, per_key, frame)?;
             }
         }
         if let (Some(i), Some(percent)) = (self.brightness, settings.brightness) {
@@ -240,6 +273,7 @@ pub fn spawn(commands: Receiver<KeyboardCommand>, publish: impl Fn(KeyboardStatu
                 keyboard.status.regular_active = remapper.is_active();
                 publish(keyboard.status.clone());
                 let mut health = Instant::now();
+                let mut reconfigured = Instant::now() - Duration::from_secs(2);
                 while !shutdown.load(Ordering::Relaxed) {
                     while let Ok(command) = commands.try_recv() {
                         let next = match command {
@@ -279,8 +313,21 @@ pub fn spawn(commands: Receiver<KeyboardCommand>, publish: impl Fn(KeyboardStatu
                         keyboard.status.revision += 1;
                         publish(keyboard.status.clone());
                     }
-                    if let Some((feature, function, data)) = keyboard.link.event(Duration::from_millis(10))
-                        && keyboard.diverted && !keyboard.status.error && function == 0 {
+                    if let Some((feature, function, data)) = keyboard.link.event(Duration::from_millis(10)) {
+                        if Some(feature) == keyboard.wireless && lighting::reconfigure_requested(function, &data)
+                            && reconfigured.elapsed() >= Duration::from_secs(2) {
+                            reconfigured = Instant::now();
+                            engine.handle(DeviceEvent::Disconnected);
+                            let _ = remapper.configure(Default::default());
+                            let result = keyboard.apply(&settings).and_then(|()| apply_regular(&mut remapper, &settings));
+                            keyboard.status.error = result.is_err();
+                            keyboard.status.message = result.err();
+                            if !keyboard.status.error { engine.handle(DeviceEvent::Connected); }
+                            else { keyboard.release(); let _ = remapper.configure(Default::default()); }
+                            keyboard.status.held = 0;
+                            keyboard.status.regular_active = remapper.is_active();
+                            publish(keyboard.status.clone());
+                        } else if keyboard.diverted && !keyboard.status.error && function == 0 {
                             if Some(feature) == keyboard.gkeys {
                                 let mask = data[0] & 0x1F;
                                 for (key, pressed) in gkey_edges(keyboard.status.held, mask) {
@@ -297,6 +344,7 @@ pub fn spawn(commands: Receiver<KeyboardCommand>, publish: impl Fn(KeyboardStatu
                             }
                             keyboard.status.bank = engine.active_bank_name().into();
                             publish(keyboard.status.clone());
+                        }
                     }
                     engine.tick();
                     // Device output is G13-specific; never send it to this keyboard.

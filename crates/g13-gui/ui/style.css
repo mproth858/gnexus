@@ -842,3 +842,14 @@ body.keyboard-mode .profile-row, body.keyboard-mode .mouse-page, body.keyboard-m
 .kb-regular-row button.assigned { border-color: var(--accent); background: var(--accent-dim); }
 .kb-regular-assignment { display: flex; align-items: center; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid var(--line-dim); }
 .kb-regular-assignment > button:first-child { color: var(--text); background: transparent; border: 0; cursor: pointer; }
+#kb-key-colors summary { cursor: pointer; padding: 16px 0; font-size: 20px; }
+.kb-paint-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.kb-paint-toolbar label { margin: 8px 12px 8px 0; }
+.kb-color-layout { overflow-x: auto; margin: 18px 0; padding: 4px; }
+.kb-color-board { min-width: 940px; }
+.kb-color-sections { display: grid; grid-template-columns: minmax(0, 1fr) 190px; gap: 14px; }
+.kb-color-row { display: flex; gap: 4px; margin-bottom: 5px; }
+.kb-color-row button { min-width: 0; height: 38px; padding: 3px; border: 1px solid #8791a4; border-radius: 5px; background: var(--paint); color: var(--paint-text); font: inherit; font-size: 12px; cursor: pointer; }
+.kb-color-row button.selected { outline: 2px solid var(--accent); outline-offset: 1px; }
+.kb-color-row button:disabled { opacity: .25; cursor: default; }
+.kb-paint-footer { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
