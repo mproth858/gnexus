@@ -20,6 +20,7 @@ pub mod lcd;
 pub mod mouse;
 pub mod keyboard;
 pub mod microphone;
+pub mod lighting;
 pub mod remap;
 pub mod platform;
 pub mod profiles;

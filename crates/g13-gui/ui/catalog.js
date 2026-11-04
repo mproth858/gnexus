@@ -223,6 +223,7 @@ function actionLabel(a) {
     const arrow = a.horizontal ? (a.wheel > 0 ? "→" : "←") : a.wheel > 0 ? "↑" : "↓";
     return t("Mol") + " " + arrow + (Math.abs(a.wheel) > 1 ? "×" + Math.abs(a.wheel) : "");
   }
+  if (a.lighting) return ({ signalrgb: "Use SignalRGB lighting", nexus: "Use G Nexus lighting", auto: "Automatic lighting" })[a.lighting] || "Lighting";
   if (a.macro) return "▶ " + a.macro;
   if (a.special) {
     const hit = MOUSE_SPECIALS.find(([id]) => id === a.special);

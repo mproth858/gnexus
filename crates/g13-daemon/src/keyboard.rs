@@ -204,6 +204,19 @@ impl Keyboard {
             self.original_mode = Some(mode);
             self.link.call(i, 1, &[2])?;
         }
+        self.apply_lighting(settings, frame.as_deref())?;
+        self.link.events.borrow_mut().clear();
+        if settings.controls_banks() && let Some(i) = self.gkeys {
+            self.diverted = true;
+            self.link.call(i, 2, &[1])?;
+            if let Some(mkeys) = self.mkeys {
+                let bit = banks::NAMES.iter().position(|b| *b == settings.active_bank).ok_or("Unknown G915 profile")?;
+                self.link.call(mkeys, 1, &[1 << bit])?;
+            }
+        }
+        Ok(())
+    }
+    fn apply_lighting(&mut self, settings: &KeyboardSettings, frame: Option<&[(u8, [u8; 3])]>) -> Result<(), String> {
         if let (Some(i), Some(color)) = (self.rgb, &settings.color) {
             let color = crate::mouse::settings::parse_color(color)?;
             // Discover zone/effect indices, rather than assuming mouse layouts.
@@ -226,7 +239,7 @@ impl Keyboard {
             }
             // A complete frame also clears stale per-key colors when returning
             // to one base color. Commit only after every write succeeded.
-            if let (Some(per_key), Some(frame)) = (self.per_key, &frame)
+            if let (Some(per_key), Some(frame)) = (self.per_key, frame)
                 && !frame.is_empty() {
                 lighting::write_frame(&self.link, per_key, frame)?;
                 // Replay the first frame after a software-control claim: the
@@ -241,17 +254,30 @@ impl Keyboard {
             if info[3] & 4 != 0 { self.link.call(i, 4, &[u8::from(percent != 0)])?; }
             if percent != 0 || info[3] & 4 == 0 { self.link.call(i, 2, &value.to_be_bytes())?; }
         }
-        self.link.events.borrow_mut().clear();
-        if settings.controls_banks() && let Some(i) = self.gkeys {
-            self.diverted = true;
-            self.link.call(i, 2, &[1])?;
-            if let Some(mkeys) = self.mkeys {
-                let bit = banks::NAMES.iter().position(|b| *b == settings.active_bank).ok_or("Unknown G915 profile")?;
-                self.link.call(mkeys, 1, &[1 << bit])?;
-            }
-        }
         Ok(())
     }
+    fn bridge_frame(&mut self, frame: &crate::lighting::Frame) -> Result<(), String> {
+        let rgb = self.rgb.ok_or("G915 RGB control unavailable")?;
+        let per_key = self.per_key.ok_or("G915 per-key RGB unavailable")?;
+        if !self.claimed {
+            // Enter the same static/software mode as normal per-key lighting.
+            self.apply_lighting(&KeyboardSettings { color: Some("#000000".into()), ..Default::default() }, None)?;
+        }
+        // A profile apply may have released control since the previous bridge frame.
+        if !self.claimed { self.link.call(rgb, 5, &f::rgb::SW_CONTROL_TAKE)?; self.claimed = true; }
+        let colors: Vec<_> = self.leds.iter().map(|id| (*id, frame.colors.get(id).copied().unwrap_or([0; 3]))).collect();
+        lighting::write_frame(&self.link, per_key, &colors)
+    }
+    fn restore_lighting(&mut self, settings: &KeyboardSettings) -> Result<(), String> {
+        if settings.color.is_none() && self.claimed {
+            if let Some(rgb) = self.rgb { self.link.call(rgb, 5, &f::rgb::SW_CONTROL_RELEASE)?; }
+            self.claimed = false;
+        }
+        let frame = settings.color.as_ref().map(|c| lighting::frame(&self.leds, c,
+            if settings.per_key_enabled { Some(&settings.key_colors) } else { None })).transpose()?;
+        self.apply_lighting(settings, frame.as_deref())
+    }
+
 }
 
 /// Read-only hardware check using the same discovery code as the app.
@@ -291,6 +317,10 @@ pub fn spawn(commands: Receiver<KeyboardCommand>, publish: impl Fn(KeyboardStatu
                 keyboard.status.settings = settings.clone();
                 keyboard.status.regular_active = remapper.is_active();
                 publish(keyboard.status.clone());
+                let mut ghub = crate::mouse::worker::GhubWatch::new().running();
+                let mut bridge = false;
+                let mut bridge_at = Instant::now();
+                let mut bridge_error_at = Instant::now() - Duration::from_secs(5);
                 let mut health = Instant::now();
                 let mut reconfigured = Instant::now() - Duration::from_secs(2);
                 while !shutdown.load(Ordering::Relaxed) {
@@ -353,12 +383,14 @@ pub fn spawn(commands: Receiver<KeyboardCommand>, publish: impl Fn(KeyboardStatu
                             if Some(feature) == keyboard.gkeys && settings.enabled {
                                 let mask = data[0] & 0x1F;
                                 for (key, pressed) in gkey_edges(keyboard.status.held, mask) {
+                                    if pressed { crate::lighting::hub().activity(); }
                                     engine.handle(DeviceEvent::Key { key, pressed });
                                 }
                                 keyboard.status.held = mask;
                             } else if Some(feature) == keyboard.mkeys
                                 && let Some(bank) = banks::from_mask(data[0])
                                 && bank != settings.active_bank {
+                                crate::lighting::hub().activity();
                                 let mut next = settings.clone();
                                 next.active_bank = bank.into();
                                 match activate(&mut keyboard, &mut engine, &mut remapper, &next) {
@@ -380,11 +412,25 @@ pub fn spawn(commands: Receiver<KeyboardCommand>, publish: impl Fn(KeyboardStatu
                             publish(keyboard.status.clone());
                         }
                     }
+                    if bridge_at.elapsed() >= Duration::from_millis(100) {
+                        bridge_at = Instant::now();
+                        let next = crate::lighting::hub().frame(crate::lighting::Device::G915);
+                        if !ghub {
+                            let result = if let Some(frame) = next { bridge = true; keyboard.bridge_frame(&frame) }
+                                else if bridge { let restored = keyboard.restore_lighting(&settings.for_bank(&settings.active_bank)); if restored.is_ok() { bridge = false; } restored }
+                                else { Ok(()) };
+                            crate::lighting::hub().report(crate::lighting::Device::G915, &result);
+                            if let Err(error) = result && bridge_error_at.elapsed() >= Duration::from_secs(5) {
+                                log::warn!("G915 lighting bridge: {error}"); bridge_error_at = Instant::now();
+                            }
+                        }
+                    }
                     engine.tick();
                     // Device output is G13-specific; never send it to this keyboard.
                     while rx.try_recv().is_ok() {}
                     if health.elapsed() >= Duration::from_secs(2) {
-                        if (keyboard.diverted || keyboard.claimed || remapper.is_active()) && crate::mouse::worker::GhubWatch::new().running() {
+                        ghub = crate::mouse::worker::GhubWatch::new().running();
+                        if (keyboard.diverted || keyboard.claimed || remapper.is_active()) && ghub {
                             engine.handle(DeviceEvent::Disconnected);
                             keyboard.release();
                             let _ = remapper.configure(Default::default());

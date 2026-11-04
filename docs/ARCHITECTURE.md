@@ -1060,3 +1060,37 @@ The browser checks editing/confirmation, meter refresh without replacing color
 inputs, independent zone colors, muted-state preservation, missing hardware,
 and minimum-width layout. `yeti_gx_probe` provides a read-only hardware inventory
 for the first real-device validation, documented in [YETI_GX.md](YETI_GX.md).
+
+
+## SignalRGB canvas source and idle selection (Windows preview)
+
+`g13-daemon::lighting` owns a shared color-source hub and a joined runtime thread.
+It keeps saved `lighting.json` preferences, ephemeral Auto/SignalRGB/Nexus mode,
+Windows session idle duration, latest per-device frames and hardware errors.
+Windows `GetLastInputInfo`/wrapping `GetTickCount` stays in `platform/windows`;
+other systems keep manual switching but do not claim automatic idle support.
+
+An opt-in UDP receiver binds only to loopback port 19738, bounds packet size,
+validates version/device/unique byte LED IDs, and stores only the newest frame.
+Streams expire individually after two seconds. The G13 HID owner shadows its
+backlight color while feeding external color; the G915 owner applies frames and
+restores the current bank through lighting-only methods without resetting its
+mapping engine. Mouse sessions keep the normal live/host/onboard lighting shadow,
+and Yeti GX switches RGB settings without touching microphone audio fields.
+All USB writes stay on the device workers. LCD, key and audio paths continue.
+
+`deploy/signalrgb/GNexus.js` is a network add-on: four virtual controllers sample
+the SignalRGB canvas and stream bounded local color frames, never opening HID.
+Corresponding native USB devices must be disabled once in SignalRGB. G915
+positions/LED IDs are generated from the existing UI/Rust maps by
+`tools/build-signalrgb-layout.cjs`. G13 has one backlight, G502 has eight LED
+positions, Yeti has two numbered zones; discovered hardware capabilities filter
+writes. PRO X Wireless has no RGB endpoint. The add-on and physical streaming
+still require live SignalRGB validation on HAL; see `docs/SIGNALRGB.md`.
+
+Profile action DTO `{ lighting = "signalrgb" | "nexus" | "auto" }` dispatches
+without synthetic input on G13/G915 G keys or the ordinary-key remapper.
+`g13-studio.exe --lighting ...` takes an early exit through loopback TCP 19739,
+using an explicit non-HTTP command prefix and bounded reads/timeouts, before
+starting any HID runtime. GUI settings expose source, timeout, participating
+devices, stream freshness and errors. `lighting.json` is included in backups.

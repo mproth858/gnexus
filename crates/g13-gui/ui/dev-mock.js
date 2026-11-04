@@ -23,6 +23,7 @@
   const q = new URLSearchParams(location.search);
   let settings = { autostart: false, start_minimized: true, close_to_tray: true, overlay_key: "G25", profiles_dir: "C:\\Users\\…\\g13d\\config\\profiles",
     language: q.get("lang") || "en", keyboard_layout: q.get("kb") };
+  let lighting = { settings: { enabled:false, idle_minutes:10, devices:["g13","g915","mouse","microphone"] }, mode:"auto", idle_seconds:0, idle_supported:true, signal_requested:false, streaming:[], error:null, port:19738 };
   const listeners = [];
   const emit = (payload) => listeners.filter((l) => l.name === "g13").forEach((l) => l.cb({ payload }));
   let headset = q.has("nohs") ? { present: false, connected: false } : { present: true, connected: !q.has("hsoff"), name: "PRO X Wireless",
@@ -100,6 +101,9 @@
       return id;
     },
     delete_profile: ({ id }) => { delete profiles[id]; },
+    get_lighting: () => structuredClone(lighting),
+    set_lighting: ({settings}) => { if (settings.idle_minutes < 1 || settings.idle_minutes > 240) throw "Idle timeout must be between 1 and 240 minutes"; lighting.settings = structuredClone(settings); if (!settings.enabled) lighting.mode = "auto"; },
+    select_lighting: ({mode}) => { if (mode === "signalrgb" && !lighting.settings.enabled) throw "Enable the SignalRGB bridge in Settings first"; lighting.mode = mode; },
     get_settings: () => settings,
     set_settings: (a) => { settings = { ...settings, autostart: a.autostart, start_minimized: a.startMinimized, close_to_tray: a.closeToTray, overlay_key: a.overlayKey, overlay_position: a.overlayPosition, auto_backup: a.autoBackup, auto_backup_keep: a.autoBackupKeep }; },
     backup_now: () => (settings.last_backup = "2026-10-17 15:30"),

@@ -200,6 +200,8 @@ pub fn spawn(commands: Receiver<Command>, publish: impl Fn(Status) + Send + 'sta
                     && let Err(error) = device.lighting(&settings) {
                     device.release(); device.status.message = Some(error); device.status.error = true;
                 }
+                let mut ghub = crate::mouse::worker::GhubWatch::new().running();
+                let mut bridge = false;
                 let mut refresh = Instant::now() - Duration::from_secs(1);
                 let mut health = Instant::now();
                 while !shutdown.load(Ordering::Relaxed) {
@@ -227,10 +229,20 @@ pub fn spawn(commands: Receiver<Command>, publish: impl Fn(Status) + Send + 'sta
                     }
                     if health.elapsed() >= Duration::from_secs(2) {
                         if device.link.call_short(0, 1, &[0, 0, 0x5a]).is_err() { break; }
-                        if device.claimed && crate::mouse::worker::GhubWatch::new().running() {
+                        ghub = crate::mouse::worker::GhubWatch::new().running();
+                        if device.claimed && ghub {
                             device.release(); device.status.error = true; device.status.message = Some("G HUB started. Yeti GX lighting control released.".into());
                         }
                         health = Instant::now();
+                    }
+                    if !ghub {
+                        if let Some(frame) = crate::lighting::hub().frame(crate::lighting::Device::Microphone) {
+                            let colors: BTreeMap<_,_> = device.status.zones.iter().filter_map(|z| frame.colors.get(&z.id)
+                                .map(|[r,g,b]| (z.id, format!("#{r:02X}{g:02X}{b:02X}")))).collect();
+                            if !colors.is_empty() { bridge = true; let result = device.lighting(&Settings { colors: Some(colors) });
+                                crate::lighting::hub().report(crate::lighting::Device::Microphone, &result); }
+                        } else if bridge { let result = device.lighting(&settings); if result.is_ok() { bridge = false; }
+                            crate::lighting::hub().report(crate::lighting::Device::Microphone, &result); }
                     }
                     input(&mut device.status);
                     publish(device.status.clone());

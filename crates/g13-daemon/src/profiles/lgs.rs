@@ -373,6 +373,7 @@ fn guid(counter: &mut u64) -> String {
 /// Body of an LGS `<macro>` for one of our actions, or why it can't be exported.
 fn export_action(a: &ActionDto) -> Result<(String, String), String> {
     match a {
+        ActionDto::Lighting { .. } => Err("Lighting source actions require G Nexus and cannot be exported to LGS".into()),
         ActionDto::Chord(s) => {
             let chord = KeyChord::parse(s).ok_or_else(|| format!("Invalid shortcut '{s}'"))?;
             let names = chord

@@ -22,4 +22,11 @@ pub fn raise_priority() {
 }
 
 pub mod temperatures;
+pub fn idle_time() -> Option<std::time::Duration> {
+    use windows_sys::Win32::{UI::Input::KeyboardAndMouse::{GetLastInputInfo, LASTINPUTINFO}, System::SystemInformation::GetTickCount};
+    let mut info = LASTINPUTINFO { cbSize: std::mem::size_of::<LASTINPUTINFO>() as u32, dwTime: 0 };
+    // SAFETY: the structure is initialized and writable; tick counts share the
+    // same wrapping millisecond clock (including after 49.7 days of uptime).
+    unsafe { (GetLastInputInfo(&mut info) != 0).then(|| std::time::Duration::from_millis(u64::from(GetTickCount().wrapping_sub(info.dwTime)))) }
+}
 mod aida64;

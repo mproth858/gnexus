@@ -410,6 +410,7 @@ impl Engine {
     /// Start `action` for this slot; what to undo when the key goes up.
     fn start_action(&mut self, slot: usize, action: Action) -> Held {
         match action {
+            Action::Lighting(mode) => { let _ = crate::lighting::hub().select(mode); Held::Idle },
             Action::None => Held::Idle,
             Action::Key(chord) => {
                 for &k in chord.keys() {

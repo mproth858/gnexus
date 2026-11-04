@@ -12,6 +12,8 @@ pub enum Action {
     /// Key does nothing.
     #[default]
     None,
+    /// Select the lighting source without injecting keyboard input.
+    Lighting(crate::lighting::Mode),
     /// Key or key combination, mirrored: pressed while the G-key is held.
     Key(KeyChord),
     /// Mouse button, mirrored: pressed while the G-key is held.

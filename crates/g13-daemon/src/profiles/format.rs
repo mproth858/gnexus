@@ -122,6 +122,7 @@ pub struct BankDto {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(untagged, deny_unknown_fields)]
 pub enum ActionDto {
+    Lighting { lighting: crate::lighting::Mode },
     Chord(String),
     Mouse {
         mouse: String,
@@ -284,6 +285,7 @@ pub fn from_dto(dto: FileDto) -> Result<ProfileDoc, ProfileError> {
 
 pub(crate) fn parse_action(a: &ActionDto, macros: &IndexMap<String, Arc<Macro>>) -> Result<Action, String> {
     Ok(match a {
+        ActionDto::Lighting { lighting } => Action::Lighting(*lighting),
         ActionDto::Chord(s) => Action::Key(KeyChord::parse(s).ok_or_else(|| format!("invalid key/chord {s:?}"))?),
         ActionDto::Mouse { mouse } => {
             Action::MouseButton(MouseButton::parse(mouse).ok_or_else(|| format!("invalid mouse button {mouse:?}"))?)
@@ -360,6 +362,7 @@ pub fn dto_to_toml(dto: &FileDto) -> Result<String, ProfileError> {
 fn action_to_dto(action: &Action, seen: &mut IndexMap<String, Arc<Macro>>) -> Result<Option<ActionDto>, ProfileError> {
     Ok(Some(match action {
         Action::None => return Ok(None),
+        Action::Lighting(mode) => ActionDto::Lighting { lighting: *mode },
         Action::Key(chord) => ActionDto::Chord(chord.to_string()),
         Action::MouseButton(b) => ActionDto::Mouse { mouse: b.name().into() },
         Action::Wheel { delta, horizontal } => ActionDto::Wheel { wheel: *delta, horizontal: *horizontal },
@@ -498,6 +501,16 @@ fn format_step(s: &MacroStep) -> String {
 #[cfg(test)]
 mod random_wait_tests {
     use super::*;
+    #[test]
+    fn lighting_actions_round_trip_without_turning_into_keys_or_macros() {
+        for (value, mode) in [("auto", crate::lighting::Mode::Auto), ("signalrgb", crate::lighting::Mode::Signalrgb), ("nexus", crate::lighting::Mode::Nexus)] {
+            let dto: ActionDto = serde_json::from_value(serde_json::json!({"lighting":value})).unwrap();
+            let action = parse_action(&dto, &IndexMap::new()).unwrap();
+            assert_eq!(action, Action::Lighting(mode));
+            assert_eq!(action_to_dto(&action, &mut IndexMap::new()).unwrap(), Some(dto));
+        }
+        assert!(serde_json::from_value::<ActionDto>(serde_json::json!({"lighting":"unknown"})).is_err());
+    }
 
     #[test]
     fn wait_random_parses_and_round_trips() {

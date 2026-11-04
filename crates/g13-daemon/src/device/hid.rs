@@ -165,6 +165,9 @@ impl HidWorker {
     }
 
     fn session(&mut self, dev: &HidDevice, lcd: Option<&LcdWriter>) -> SessionEnd {
+        let mut bridge = false;
+        let mut backlight = None;
+        let mut bridge_at = std::time::Instant::now();
         let timeout_ms = self.cfg.io_interval.as_millis().clamp(1, i32::MAX as u128) as i32;
         let mut buf = [0u8; 64];
 
@@ -189,6 +192,7 @@ impl HidWorker {
                         let events = &self.events;
                         let mut engine_gone = false;
                         self.tracker.update(&report, |e| {
+                            if matches!(e, DeviceEvent::Key { pressed: true, .. }) { crate::lighting::hub().activity(); }
                             engine_gone |= events.send(e).is_err();
                         });
                         if engine_gone {
@@ -201,9 +205,27 @@ impl HidWorker {
                 Err(e) => return SessionEnd::Io(e),
             }
 
+            if bridge_at.elapsed() >= Duration::from_millis(100) {
+                bridge_at = std::time::Instant::now();
+                if let Some(frame) = crate::lighting::hub().frame(crate::lighting::Device::G13) {
+                    if let Some([r,g,b]) = frame.colors.get(&0).copied() {
+                        bridge = true;
+                        let result = execute(dev, &DeviceCommand::SetBacklight(g13_core::RgbColor { r, g, b })).map_err(|e| e.to_string());
+                        crate::lighting::hub().report(crate::lighting::Device::G13, &result);
+                    }
+                } else if bridge {
+                    let result = backlight.map_or(Ok(()), |color| execute(dev, &DeviceCommand::SetBacklight(color)).map_err(|e| e.to_string()));
+                    if result.is_ok() { bridge = false; }
+                    crate::lighting::hub().report(crate::lighting::Device::G13, &result);
+                }
+            }
             // Execute pending commands between two reads.
             loop {
                 match self.commands.try_recv() {
+                    Ok(DeviceCommand::SetBacklight(color)) => {
+                        backlight = Some(color);
+                        if !bridge { let _ = execute(dev, &DeviceCommand::SetBacklight(color)); }
+                    }
                     Ok(DeviceCommand::DrawLcd(fb)) if lcd.is_some() => lcd.unwrap().send(fb),
                     Ok(cmd) => match execute(dev, &cmd) {
                         Ok(()) => log::debug!("sent {:?}", CommandKind(&cmd)),

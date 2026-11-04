@@ -527,8 +527,10 @@ impl MouseWorker {
                 }
             }
             let now = Instant::now();
-            if s.animating() && !status.ghub_running && now >= frame_at {
+            if (s.animating() || s.bridge_active) && !status.ghub_running && now >= frame_at {
                 frame_at = now + FRAME;
+                let bridge_result = s.draw_bridge();
+                crate::lighting::hub().report(crate::lighting::Device::Mouse, &bridge_result);
                 s.draw_frame();
             }
             let mut changed = false;
@@ -607,6 +609,8 @@ struct Session {
     /// Gradient drawn right now (the saved one, or a preview).
     anim: Option<Lighting>,
     anim_start: Instant,
+    bridge_active: bool,
+    restore_lighting: Option<Lighting>,
 }
 
 impl Session {
@@ -680,19 +684,39 @@ impl Session {
             onboard_cache: Vec::new(),
             anim: None,
             anim_start: Instant::now(),
+            bridge_active: false,
+            restore_lighting: None,
         })
         .map(|mut s: Self| {
             s.anim = s.soft.clone();
+            s.restore_lighting = s.soft.clone();
             s
         })
     }
 
     fn animating(&self) -> bool {
-        self.anim.is_some() && self.per_led.is_some()
+        (self.anim.is_some() && self.per_led.is_some()) || crate::lighting::hub().status().settings.enabled
     }
 
     /// One frame of the gradient on every LED.
+    fn draw_bridge(&mut self) -> Result<(), String> {
+        if let Some(frame) = crate::lighting::hub().frame(crate::lighting::Device::Mouse) {
+            let (feature, ids) = self.per_led.clone().ok_or("Per-LED RGB is unavailable on this mouse")?;
+            self.bridge_active = true;
+            if !self.per_led_on { self.enter_per_led()?; }
+            let colors: Vec<_> = ids.iter().enumerate().map(|(i,id)| (*id, frame.colors.get(&(i as u8)).copied().unwrap_or([0;3]))).collect();
+            for request in per_led::set_requests(&colors) { self.call(feature, per_led::FN_SET, &request)?; }
+            self.call(feature, per_led::FN_FRAME_END, &per_led::FRAME_END)?;
+        } else if self.bridge_active {
+            self.per_led_on = false;
+            if let Some(lighting) = self.restore_lighting.clone() { self.preview(&lighting, None)?; }
+            else { self.release_rgb(); }
+            self.bridge_active = false;
+        }
+        Ok(())
+    }
     fn draw_frame(&mut self) {
+        if crate::lighting::hub().frame(crate::lighting::Device::Mouse).is_some() { return; }
         let (
             Some(Lighting::Gradient {
                 from,
@@ -745,6 +769,11 @@ impl Session {
             self.call(i, 3, &[0, (d >> 8) as u8, d as u8])?;
             self.dpi_live = true;
         }
+        self.restore_lighting = Some(lighting.clone());
+        if crate::lighting::hub().frame(crate::lighting::Device::Mouse).is_some() {
+            self.anim = matches!(lighting, Lighting::Gradient { .. }).then(|| lighting.clone());
+            return Ok(());
+        }
         if let Lighting::Gradient { .. } = lighting {
             self.anim = Some(lighting.clone());
             self.draw_frame();
@@ -788,6 +817,7 @@ impl Session {
     fn revert_live(&mut self) {
         self.release_rgb();
         self.anim = self.soft.clone();
+        self.restore_lighting = self.soft.clone();
         if self.dpi_live {
             self.dpi_live = false;
             if let Some(p) = self.current_profile().filter(|&p| p != 0) {
@@ -871,6 +901,7 @@ impl Session {
         let _ = self.call(self.oi, 1, &[1]);
         self.release_rgb();
         self.anim = self.soft.clone();
+        self.restore_lighting = self.soft.clone();
         self.dpi_live = false;
         if let Some(p) = self.current_profile().filter(|&p| p != 0) {
             let _ = self.call(self.oi, 3, &[(p >> 8) as u8, p as u8]);
@@ -1232,6 +1263,7 @@ impl Session {
         // what is shown now is what is saved: no more preview
         self.release_rgb();
         self.anim = self.soft.clone();
+        self.restore_lighting = self.soft.clone();
         self.dpi_live = false;
         // re-selecting the profile makes the mouse reload it (DPI, rate, lighting)
         self.call(self.oi, 3, &[(profile >> 8) as u8, profile as u8])?;

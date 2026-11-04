@@ -488,6 +488,7 @@
       <button data-tab="g13">CLAVIER G13</button>
       <button data-tab="mouse">SOURIS</button>
       <button data-tab="headset">CASQUE</button>
+      <button data-tab="lighting">LIGHTING</button>
       <button data-tab="about">À PROPOS</button>
     </nav>
     <div class="set-pane" data-pane="general">
@@ -559,6 +560,23 @@
     </div>
     <p class="muted small-print">Exporter : le profil affiché sur la page Souris (paliers DPI, fréquence, éclairage, boutons et G-shift) dans un fichier. Importer : charge un fichier dans le profil affiché ; vérifiez puis « Enregistrer dans la souris ».</p>
     <p class="muted small-print">G HUB doit rester fermé pendant que G Nexus règle la souris : il reprendrait la main sur elle.</p>
+    </div>
+    <div class="set-pane hidden" data-pane="lighting">
+      <h3>SignalRGB lighting bridge</h3>
+      <p class="muted small-print">SignalRGB supplies colors through the G Nexus add-on. G Nexus keeps your mappings and device controls active. Disable the corresponding physical devices in SignalRGB once to avoid competing lighting writes.</p>
+      <label class="toggle"><input type="checkbox" id="light-enabled"><i></i><span>Enable SignalRGB bridge</span></label>
+      <div class="set-row"><label for="light-idle">Switch after idle (minutes)</label><input type="number" id="light-idle" min="1" max="240" value="10" style="width:85px"></div>
+      <p class="muted small-print">Automatic mode restores G Nexus colors when you use the mouse or keyboard. Manual selections stay active until changed. If the color stream stops for 2 seconds, G Nexus colors return.</p>
+      <div class="tiles" id="light-devices"></div>
+      <button class="ghost small" id="light-save">SAVE BRIDGE SETTINGS</button>
+      <div class="group-cap">LIGHTING SOURCE</div>
+      <div class="tiles" id="light-modes"><button class="tile wide" data-mode="auto">Automatic</button><button class="tile wide" data-mode="signalrgb">Use SignalRGB</button><button class="tile wide" data-mode="nexus">Use G Nexus</button></div>
+      <p id="light-status" role="status" class="small-print"></p>
+      <p class="muted small-print">G13: one backlight color. G915: individual keys. G502 X PLUS: individual LEDs. Yeti GX: discovered RGB zones (hardware validation pending). PRO X Wireless has no controllable RGB lighting.</p>
+      <div class="group-cap">KEY / STREAM DECK ACTIONS</div>
+      <p class="small-print">In a G13 or G915 assignment, open MACROS and choose a lighting action. For Stream Deck, use System → Open, select g13-studio.exe and add one of these arguments:</p>
+      <p><code>--lighting signalrgb</code><br><code>--lighting nexus</code><br><code>--lighting auto</code></p>
+      <p class="muted small-print">G Nexus must already be running. Install the supplied G Nexus SignalRGB add-on on HAL; setup instructions are included with the preview.</p>
     </div>
     <div class="set-pane hidden about" data-pane="about">
       <div class="about-head"><span class="about-name">G NEXUS</span><span class="muted" id="about-version">—</span></div>
@@ -667,5 +685,6 @@
   <script src="keyboard.js"></script>
   <script src="microphone.js"></script>
   <script src="app.js"></script>
+  <script src="lighting.js"></script>
 </body>
 </html>

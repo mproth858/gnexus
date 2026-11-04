@@ -429,3 +429,8 @@ pub fn default_media_provider() -> Box<dyn MediaProvider> {
 }
 
 pub mod temperatures;
+/// Time since Windows received keyboard or mouse input in this session.
+pub fn idle_time() -> Option<std::time::Duration> {
+    #[cfg(windows)] { windows::idle_time() }
+    #[cfg(not(windows))] { None }
+}

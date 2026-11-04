@@ -36,7 +36,7 @@ pub struct Backup {
 }
 
 /// Configuration files next to the `profiles` directory that a backup carries.
-pub const EXTRA_FILES: [&str; 5] = ["mouse-profiles.json", "headset-eq.json", "macros.json", "g915.json", "microphone.json"];
+pub const EXTRA_FILES: [&str; 6] = ["mouse-profiles.json", "headset-eq.json", "macros.json", "g915.json", "microphone.json", "lighting.json"];
 
 fn safe_id(id: &str) -> bool {
     !id.is_empty() && id.len() <= 64 && id.chars().all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_')

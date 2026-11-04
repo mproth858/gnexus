@@ -69,6 +69,7 @@ pub enum Request {
 }
 
 pub struct Runtime {
+    lighting: Option<JoinHandle<()>>,
     shutdown: Arc<AtomicBool>,
     recent: crate::profiles::manager::RecentApps,
     requests: Sender<Request>,
@@ -106,6 +107,8 @@ impl Runtime {
         let recent = profiles.recent_apps();
 
         let shutdown = Arc::new(AtomicBool::new(false));
+        let lighting = Some(crate::lighting::spawn(profiles_dir.as_ref().and_then(|p| p.parent()).map(Path::to_path_buf), shutdown.clone())
+            .map_err(|e| format!("Could not start lighting bridge: {e}"))?);
         let (event_tx, event_rx) = channel();
         let (cmd_tx, cmd_rx) = channel();
         let cfg = HidConfig {
@@ -210,7 +213,7 @@ impl Runtime {
             .map_err(|e| format!("could not start engine thread: {e}"))?;
 
         Ok((
-            Self { shutdown, recent, requests: req_tx, profiles_dir, engine: Some(engine_thread), hid: Some(hid), mouse, headset, keyboard, microphone },
+            Self { shutdown, lighting, recent, requests: req_tx, profiles_dir, engine: Some(engine_thread), hid: Some(hid), mouse, headset, keyboard, microphone },
             ui,
         ))
     }
@@ -279,6 +282,7 @@ impl Runtime {
         }
         if let Some((_, h)) = self.keyboard.take() { let _ = h.join(); }
         if let Some((_, h)) = self.microphone.take() { let _ = h.join(); }
+        if let Some(h) = self.lighting.take() { let _ = h.join(); }
         platform::shutdown();
     }
 }

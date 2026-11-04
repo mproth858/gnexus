@@ -176,6 +176,7 @@ impl Player {
         let repeat = if down { !self.held.insert(source) } else { !self.held.remove(&source) };
         if !down && repeat { return; }
         let result = match action {
+            Action::Lighting(mode) if down && !repeat => { let _ = crate::lighting::hub().select(mode); Ok(()) },
             Action::Key(chord) if down && repeat => {
                 // Forward hardware repeat as another down, without acquiring a second hold.
                 chord.keys().last().map_or(Ok(()), |k| self.injector.inner.key(*k, true))

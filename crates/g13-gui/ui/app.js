@@ -494,7 +494,8 @@ function renderPicker() {
     const mode = (n) => t((MACRO_MODES.find(([m]) => m === (all[n].mode || "once")) || [])[1] || "");
     if (!MacroLib.items) MacroLib.ensure().then(() => S.pickerTab === "macros" && renderPicker());
     const lib = MacroLib.others(all);
-    body.innerHTML = `<div class="tiles">${names.map((n) =>
+    const lights = S.pick?.mouse ? "" : `<div class="group-cap">LIGHTING SOURCE</div><div class="tiles">${["signalrgb", "nexus", "auto"].map(mode => `<button class="tile wide${isCur({ lighting: mode })}" data-lighting="${mode}">${esc(actionLabel({lighting:mode}))}</button>`).join("")}</div>`;
+    body.innerHTML = lights + `<div class="tiles">${names.map((n) =>
       `<button class="tile wide${isCur({ macro: n })}" data-macro="${esc(n)}" title="${esc(mode(n))}">▶ ${esc(n)}</button>`).join("")}
       <button class="tile wide" id="macro-new-assign">${t("+ NOUVELLE MACRO")}</button></div>
       ${lib.length ? `<div class="group-cap">${t("BIBLIOTHÈQUE")}</div><div class="tiles">${lib.map((n) =>
@@ -544,6 +545,8 @@ $("#picker-body").addEventListener("click", (e) => {
     assign({ special: t.dataset.special });
   } else if (t.dataset.pad) {
     assign({ pad: t.dataset.pad });
+  } else if (t.dataset.lighting) {
+    assign({ lighting: t.dataset.lighting });
   } else if (t.dataset.macro) {
     assign({ macro: t.dataset.macro });
   } else if (t.dataset.libmacro) {

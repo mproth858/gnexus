@@ -124,6 +124,13 @@ fn parse_overlay_key(id: Option<&str>) -> Option<G13Key> {
     id.and_then(G13Key::from_id).filter(|k| k.is_g_key())
 }
 
+#[tauri::command]
+fn get_lighting() -> g13_daemon::lighting::Status { g13_daemon::lighting::hub().status() }
+#[tauri::command]
+fn set_lighting(settings: g13_daemon::lighting::Settings) -> Result<(), String> { g13_daemon::lighting::hub().configure(settings) }
+#[tauri::command]
+fn select_lighting(mode: g13_daemon::lighting::Mode) -> Result<(), String> { g13_daemon::lighting::hub().select(mode) }
+
 // ---- commands ------------------------------------------------------------------
 
 #[tauri::command]
@@ -1392,6 +1399,14 @@ fn main() {
     if let Some(code) = audio_setup_mode(&std::env::args().collect::<Vec<_>>()) {
         std::process::exit(code);
     }
+    // Handle Stream Deck / shortcut commands before starting any HID workers.
+    let command_args: Vec<String> = std::env::args().collect();
+    if let Some(index) = command_args.iter().position(|a| a == "--lighting") {
+        let result = command_args.get(index + 1).ok_or_else(|| "Missing lighting mode".to_string())
+            .and_then(|s| g13_daemon::lighting::parse_mode(s)).and_then(g13_daemon::lighting::remote_select);
+        if let Err(error) = &result { eprintln!("{error}"); }
+        std::process::exit(if result.is_ok() { 0 } else { 1 });
+    }
     init_logging();
 
     let args: Vec<String> = std::env::args().collect();
@@ -1450,6 +1465,7 @@ fn main() {
         .manage(state)
         .invoke_handler(tauri::generate_handler![
             get_status,
+            get_lighting, set_lighting, select_lighting,
             list_profiles,
             load_profile,
             save_profile,
