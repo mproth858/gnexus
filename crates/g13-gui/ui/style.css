@@ -835,3 +835,10 @@ body.keyboard-mode .profile-row, body.keyboard-mode .mouse-page, body.keyboard-m
 .kb-actions { display: flex; align-items: center; gap: 16px; margin-top: 24px; }
 #kb-feedback { margin-right: auto; }
 #kb-macros summary { cursor: pointer; padding: 16px 0; font-size: 20px; }
+#kb-regular summary { cursor: pointer; padding: 16px 0; font-size: 20px; }
+.kb-regular-layout { overflow-x: auto; margin: 16px 0; }
+.kb-regular-row { display: flex; min-width: 850px; gap: 5px; margin-bottom: 5px; }
+.kb-regular-row button { min-width: 0; height: 40px; border: 1px solid var(--line-dim); background: var(--panel-2); color: var(--text); border-radius: 5px; cursor: pointer; }
+.kb-regular-row button.assigned { border-color: var(--accent); background: var(--accent-dim); }
+.kb-regular-assignment { display: flex; align-items: center; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid var(--line-dim); }
+.kb-regular-assignment > button:first-child { color: var(--text); background: transparent; border: 0; cursor: pointer; }

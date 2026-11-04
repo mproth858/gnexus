@@ -31,6 +31,10 @@ path = "src/bin/g915_probe.rs"
 name = "recorder-probe"
 path = "src/bin/recorder_probe.rs"
 
+[[bin]]
+name = "remap-probe"
+path = "src/bin/remap_probe.rs"
+
 [dependencies]
 g13-core = { workspace = true }
 logi-hidpp = { workspace = true }

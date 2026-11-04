@@ -884,3 +884,25 @@ RECORD. Si la capture native ne contient aucune touche, ces événements locaux
 servent de secours (fenêtre au premier plan). Les deux captures ne sont pas
 additionnées : pas de doubles frappes. Les modificateurs encore tenus sont
 relâchés à STOP ou à la perte du focus.
+
+## Affectations des touches ordinaires (Windows)
+
+`remap.rs` valide `KeyboardSettings::regular_keys` avec les mêmes actions et
+macros que le G13. La table est commune aux banques M et reste désactivée par
+défaut (`regular_enabled`). Le module Windows `platform/windows/remapper.rs`
+possède un fil de hook et un fil de lecture des actions. Le hook décide seulement
+de bloquer ou transmettre la touche ; il ne joue jamais de macro et n'injecte
+pas d'entrée dans sa callback.
+
+La portée est Windows entière, activée uniquement pendant une session G915.
+La déconnexion, un conflit G HUB, la pause et l'arrêt annulent les macros et
+relâchent les sorties. La porte `Gate` garde les fronts consommés jusqu'au
+relâchement, même si la table change. Les touches déjà tenues avant l'activation
+continuent leur chemin natif. `KeyOwnership` protège les modificateurs partagés
+et physiques sans verrou bloquant dans la callback. RECORD met la table en pause.
+Le raccourci Ctrl+Alt+Pause la désactive jusqu'au prochain Apply.
+
+Tests : décisions de suppression, répétition, modifications pendant un appui,
+modificateurs partagés, annulation des macros ; `remap-probe` vérifie le vrai
+chemin Win32 F24→F23. La page G915 propose un clavier cliquable, une liste des
+affectations et Restore default. Voir `docs/G915.md` pour les limites de portée.

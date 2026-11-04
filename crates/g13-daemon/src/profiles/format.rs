@@ -282,7 +282,7 @@ pub fn from_dto(dto: FileDto) -> Result<ProfileDoc, ProfileError> {
     Ok(ProfileDoc { profile, rules: dto.rules, is_default: dto.default, number: dto.number })
 }
 
-fn parse_action(a: &ActionDto, macros: &IndexMap<String, Arc<Macro>>) -> Result<Action, String> {
+pub(crate) fn parse_action(a: &ActionDto, macros: &IndexMap<String, Arc<Macro>>) -> Result<Action, String> {
     Ok(match a {
         ActionDto::Chord(s) => Action::Key(KeyChord::parse(s).ok_or_else(|| format!("invalid key/chord {s:?}"))?),
         ActionDto::Mouse { mouse } => {

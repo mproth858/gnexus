@@ -156,7 +156,7 @@
 
   <main id="keyboard-page" class="keyboard-page">
     <div class="kb-heading"><h1>G915</h1><p id="kb-state" role="status">Looking for your keyboard…</p></div>
-    <p>Close G HUB before applying changes. Your regular typing keys keep their normal behavior.</p>
+    <p>Close G HUB before applying changes. Keys without an assignment keep their normal behavior.</p>
     <fieldset id="kb-controls">
       <legend>Lighting</legend>
       <label><input id="kb-lighting" type="checkbox"> Control lighting</label>
@@ -168,6 +168,17 @@
       <div class="kb-banks" id="kb-banks"><button data-bank="M1" class="on">M1</button><button data-bank="M2">M2</button><button data-bank="M3">M3</button></div>
       <p>Choose a G-key to assign a shortcut, mouse action, or macro. The M1–M3 keys on your keyboard switch the active bank.</p>
       <div id="kb-keys" class="kb-keys"></div>
+      <details id="kb-regular"><summary>Regular keys</summary>
+        <p>These overrides apply to all Windows keyboards while G Nexus runs and the G915 is connected. They pause during macro recording.</p>
+        <label><input id="kb-regular-enabled" type="checkbox"> Enable regular-key overrides (Windows-wide)</label>
+        <span id="kb-regular-state" role="status"></span>
+        <button id="kb-regular-pause" class="ghost" type="button">Pause overrides now</button>
+        <p>Choose a key below, then assign a key, shortcut, mouse action, or macro. Restore default removes its override. Ctrl+Alt+Pause pauses all regular-key overrides.</p>
+        <div id="kb-regular-layout" class="kb-regular-layout"></div>
+        <label>Other key <select id="kb-regular-source"></select></label>
+        <button id="kb-regular-add" class="ghost" type="button">Assign key</button>
+        <div id="kb-regular-list"></div>
+      </details>
       <details id="kb-macros"><summary>Macros</summary>
       <div class="macro-layout"><div class="macro-list" id="kb-macro-list"></div><div class="macro-edit" id="kb-macro-edit"></div></div>
       </details>

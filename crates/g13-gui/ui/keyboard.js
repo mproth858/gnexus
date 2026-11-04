@@ -13,13 +13,30 @@ const Keyboard = {
       get: () => this.draft?.profile.macros,
       set: (macros) => { this.draft.profile.macros = macros; },
       changed: () => this.changed(),
-      recordingChanged: () => this.renderButtons(),
+      recordingChanged: () => { this.renderRegular(); this.renderButtons(); },
       renamed: (old, name) => this.rebind(old, name),
       deleted: (name) => this.rebind(name, null),
     });
     $("#kb-banks").addEventListener("click", (e) => {
       const bank = e.target.closest("[data-bank]")?.dataset.bank;
       if (bank) { this.bank = bank; this.renderKeys(); }
+    });
+    $("#kb-regular-source").innerHTML = ALL_CODES.map((key) => `<option value="${esc(key)}">${esc(KEY_LABELS[key] || key)} (${esc(key)})</option>`).join("");
+    $("#kb-regular-enabled").addEventListener("change", (e) => { this.draft.regular_enabled = e.target.checked; this.changed(); });
+    $("#kb-regular-add").addEventListener("click", () => this.pickRegular($("#kb-regular-source").value));
+    $("#kb-regular-layout").addEventListener("click", (e) => {
+      const key = e.target.closest("[data-regular]")?.dataset.regular;
+      if (key) this.pickRegular(key);
+    });
+    $("#kb-regular-list").addEventListener("click", (e) => {
+      const restore = e.target.closest("[data-restore]")?.dataset.restore;
+      const key = e.target.closest("[data-regular]")?.dataset.regular;
+      if (restore) { delete this.draft.regular_keys[restore]; this.changed(); }
+      else if (key) this.pickRegular(key);
+    });
+    $("#kb-regular-pause").addEventListener("click", async () => {
+      $("#kb-regular-pause").disabled = true;
+      try { await invoke("pause_regular_keys"); } catch (e) { toast(String(e), true); }
     });
     $("#kb-keys").addEventListener("click", (e) => {
       const key = e.target.closest("[data-key]")?.dataset.key;
@@ -46,6 +63,8 @@ const Keyboard = {
     }
     $("#kb-reset").addEventListener("click", () => {
       this.draft = structuredClone(this.status.settings);
+      this.draft.regular_keys ??= {};
+      this.draft.regular_enabled ??= false;
       this.dirty = false;
       this.render();
     });
@@ -71,9 +90,39 @@ const Keyboard = {
         if (action == null) delete bank[key]; else bank[key] = action;
       }
     }
+    for (const key of Object.keys(this.draft.regular_keys || {})) {
+      const action = visit(this.draft.regular_keys[key]);
+      if (action == null) delete this.draft.regular_keys[key]; else this.draft.regular_keys[key] = action;
+    }
   },
 
-  changed() { this.dirty = true; this.renderKeys(); this.renderButtons(); },
+  changed() { this.dirty = true; this.renderKeys(); this.renderRegular(); this.renderButtons(); },
+
+  pickRegular(key) {
+    if (!this.draft || !this.status?.regular_supported) return;
+    openPickerFor({ label: KEY_LABELS[key] || key, sub: `Regular key · ${key}`, regular: true,
+      get: () => this.draft.regular_keys[key],
+      set: (action) => { if (action == null) delete this.draft.regular_keys[key]; else this.draft.regular_keys[key] = action; this.changed(); },
+      macros: () => this.draft.profile.macros,
+      newMacro: () => this.editor.add(),
+      openMacros: () => { $("#kb-macros").open = true; this.editor.render(); $("#kb-macro-edit").scrollIntoView({ block: "nearest" }); },
+    });
+  },
+
+  renderRegular() {
+    if (!this.draft) return;
+    const assignments = this.draft.regular_keys;
+    const row = (keys) => `<div class="kb-regular-row">${keys.map(([key, label, , units = 1]) =>
+      `<button type="button" data-regular="${esc(key)}" class="${assignments[key] ? "assigned" : ""}" style="flex:${units}" title="${esc(key + (assignments[key] ? " → " + actionLabel(assignments[key]) : " · Default"))}">${esc(label || key)}</button>`).join("")}</div>`;
+    $("#kb-regular-layout").innerHTML = row([["Escape", "Esc"], ...Array.from({ length: 12 }, (_, i) => [`F${i + 1}`, `F${i + 1}`])]) + KEYBOARD_ROWS.map(row).join("");
+    $("#kb-regular-list").innerHTML = Object.entries(assignments).map(([key, action]) =>
+      `<div class="kb-regular-assignment"><button type="button" data-regular="${esc(key)}"><b>${esc(KEY_LABELS[key] || key)}</b> → ${esc(actionLabel(action))}</button><button type="button" data-restore="${esc(key)}" class="ghost">Restore default</button></div>`).join("") || '<p>No regular-key overrides.</p>';
+    $("#kb-regular-state").textContent = !this.status?.regular_supported ? "Windows only" : this.status?.regular_active ? "Active" : "Paused / disabled";
+    $("#kb-regular-pause").disabled = !this.status?.regular_active;
+    $("#kb-regular-enabled").disabled = !this.status?.regular_supported && !this.draft.regular_enabled;
+    $$("#kb-regular-layout button, #kb-regular-list button, #kb-regular-add, #kb-regular-source").forEach((b) => { b.disabled = !this.status?.regular_supported || this.editor.recording || this.editor.recordBusy; });
+    if (!this.dirty) $("#kb-regular-enabled").checked = !!this.draft.regular_enabled;
+  },
 
   update(status) {
     this.status = status;
@@ -85,6 +134,8 @@ const Keyboard = {
     }
     if (!this.dirty && !this.editor.recording && !this.editor.recordBusy) this.draft = structuredClone(status.settings);
     this.draft.profile.macros ??= {};
+    this.draft.regular_keys ??= {};
+    this.draft.regular_enabled ??= false;
     this.render();
   },
 
@@ -101,7 +152,8 @@ const Keyboard = {
   renderButtons() {
     $("#kb-controls").disabled = !this.status?.connected || this.saving;
     const recording = this.editor.recording || this.editor.recordBusy;
-    $("#kb-save").disabled = recording || !this.dirty || this.saving || !this.status?.connected;
+    const resume = this.draft?.regular_enabled && !this.status?.regular_active && Object.keys(this.draft?.regular_keys || {}).length > 0;
+    $("#kb-save").disabled = recording || (!this.dirty && !resume) || this.saving || !this.status?.connected;
     $("#kb-reset").disabled = recording || !this.dirty || this.saving;
     $("#kb-feedback").textContent = this.saving ? "Applying…" : this.dirty ? "Unsaved changes" : this.status?.message || "";
   },
@@ -129,6 +181,7 @@ const Keyboard = {
       this.editor.render();
     }
     this.renderKeys();
+    this.renderRegular();
     this.renderButtons();
   },
 };

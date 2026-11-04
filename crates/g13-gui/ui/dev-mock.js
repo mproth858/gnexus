@@ -41,14 +41,18 @@
       gshift: [{ mouse: "Left" }, { mouse: "Right" }, "LeftCtrl+T", { mouse: "Back" }, null, { mouse: "Forward" }, "LeftCtrl+LeftShift+Tab",
         "LeftCtrl+Tab", "LeftCtrl+0", "LeftCtrl+Z", "LeftCtrl+X", null, null, null, null, null] },
   };
-  let keyboard = { connected: true, name: "G915", transport: "LIGHTSPEED", voltage_mv: 3998,
+  let keyboard = { connected: true, name: "G915", transport: "LIGHTSPEED", voltage_mv: 3998, regular_supported: true, regular_active: false,
     lighting_supported: true, brightness_supported: true, gkeys_supported: true, bank: "M1", held: 0, revision: 0,
-    settings: { enabled: false, color: null, brightness: null,
+    settings: { enabled: false, color: null, brightness: null, regular_enabled: false, regular_keys: {},
       profile: { name: "G915", banks: { M1: {}, M2: {}, M3: {} }, macros: {} } } };
   const commands = {
     apply_keyboard: ({ settings }) => {
-      keyboard = { ...keyboard, settings: structuredClone(settings), message: "G915 settings saved", revision: keyboard.revision + 1 };
+      keyboard = { ...keyboard, settings: structuredClone(settings), regular_active: !!settings.regular_enabled && Object.keys(settings.regular_keys || {}).length > 0, message: "G915 settings saved", revision: keyboard.revision + 1 };
       setTimeout(() => emit({ type: "keyboard", status: keyboard }), 50);
+    },
+    pause_regular_keys: () => {
+      keyboard = { ...keyboard, regular_active: false, message: "Regular-key assignments paused. Apply to resume." };
+      setTimeout(() => emit({ type: "keyboard", status: keyboard }), 20);
     },
     get_status: () => ({ keyboard, connected: !location.hash.includes("offline"), bank: "M1", active_profile: "demo", recording: false, display_on: true, dry_run: true, error: null }),
     list_profiles: () => Object.entries(profiles).map(([id, p], i) => ({ id, number: i + 1, name: p.name, default: !!p.default, apps: p.rules.map((r) => r.exe || r.title), error: null })),

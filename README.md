@@ -2,8 +2,13 @@
 
 This fork adds initial **G915** support for Windows: static lighting, brightness,
 and G1–G5 remapping/macros across three banks. LIGHTSPEED discovery has been
-verified on hardware; control changes and USB/Bluetooth still need hardware
-validation. See [G915 support and Windows development](docs/G915.md).
+verified on hardware; the user has confirmed lighting, macro recording and
+G-key macro playback. USB/Bluetooth and ordinary-key overrides still need
+hardware validation. See [G915 support and Windows development](docs/G915.md).
+
+An optional **Windows-wide regular-key remapper** is also available on the G915
+page, with shortcuts, mouse actions, macros, pause and restore-default controls.
+It runs while G Nexus and the G915 are connected; it affects other keyboards too.
 
 *[Version française](README.fr.md)*
 

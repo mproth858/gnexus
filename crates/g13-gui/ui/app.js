@@ -416,7 +416,7 @@ function openPickerFor(target) {
   S.pick = target;
   S.mods.clear();
   // a mouse has macros only in real time (target.macros)
-  const hidden = target.mouse ? (target.macros ? ["pad"] : ["pad", "macros"]) : [];
+  const hidden = target.regular ? ["pad"] : target.mouse ? (target.macros ? ["pad"] : ["pad", "macros"]) : [];
   $$("#picker-tabs button").forEach((b) => b.classList.toggle("hidden", hidden.includes(b.dataset.tab)));
   if (hidden.includes(S.pickerTab)) S.pickerTab = "keyboard";
   $("#picker-key").textContent = target.label;

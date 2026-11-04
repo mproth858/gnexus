@@ -7,6 +7,7 @@ pub mod gamepad;
 pub mod injector;
 pub mod media;
 pub mod recorder;
+pub mod remapper;
 
 /// Run this process at high priority. A game that keeps every core busy made Windows
 /// hold back the G13 threads at normal priority: keys waited 6 ms in the median and

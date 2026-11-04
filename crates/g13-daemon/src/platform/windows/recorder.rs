@@ -25,6 +25,8 @@ use crate::recording::Recorded;
 /// The capture in progress (hook procedures have no context pointer).
 static CAPTURE: Mutex<Option<Capture>> = Mutex::new(None);
 
+pub(crate) fn is_recording() -> bool { CAPTURE.lock().is_ok_and(|c| c.is_some()) }
+
 struct Capture {
     start: Instant,
     events: Vec<(Duration, Recorded)>,
@@ -41,7 +43,7 @@ fn push(e: Recorded) {
 }
 
 /// Key code for a hooked key: its scan code (with the E0 flag), else its virtual key.
-fn key_of(k: &KBDLLHOOKSTRUCT) -> Option<KeyCode> {
+pub(crate) fn key_of(k: &KBDLLHOOKSTRUCT) -> Option<KeyCode> {
     // Software-forwarded input may supply a virtual key without a scan code.
     // Resolve it using the current Windows layout; keep physical scan codes intact.
     let mapped = if k.scanCode == 0 {

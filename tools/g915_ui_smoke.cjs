@@ -27,6 +27,28 @@ const { chromium } = require('playwright');
     assert.equal(await page.locator('#kb-save').isDisabled(), true);
     assert.equal(await page.evaluate(() => Keyboard.status.settings.profile.banks.M1.G1), 'A');
     assert.ok(await page.evaluate(() => Keyboard.status.settings.profile.macros['macro-1']));
+    await page.locator('#kb-regular summary').click();
+    await page.locator('#kb-regular-enabled').check();
+    await page.locator('#kb-regular-layout [data-regular="F6"]').click();
+    await page.locator('#picker-tabs [data-tab="basic"]').click();
+    await page.locator('#picker [data-code="F5"]').click();
+    assert.match(await page.locator('#kb-regular-list').innerText(), /F6.*F5/);
+    await page.locator('#kb-save').click();
+    await page.waitForFunction(() => !Keyboard.saving && Keyboard.status.regular_active);
+    assert.equal(await page.evaluate(() => Keyboard.status.settings.regular_keys.F6), 'F5');
+    if (process.env.G915_REGULAR_SCREENSHOT) {
+      await page.locator('#kb-regular').scrollIntoViewIfNeeded();
+      await page.screenshot({ path: process.env.G915_REGULAR_SCREENSHOT });
+    }
+    await page.locator('#kb-regular-pause').click();
+    await page.waitForFunction(() => !Keyboard.status.regular_active);
+    assert.equal(await page.locator('#kb-save').isDisabled(), false, 'Apply resumes paused saved assignments');
+    await page.locator('#kb-save').click();
+    await page.waitForFunction(() => !Keyboard.saving && Keyboard.status.regular_active);
+    await page.locator('#kb-regular-list [data-restore="F6"]').click();
+    await page.locator('#kb-save').click();
+    await page.waitForFunction(() => !Keyboard.saving);
+    assert.deepEqual(await page.evaluate(() => Keyboard.status.settings.regular_keys), {});
     // Record an already-saved macro while device status updates arrive.
     await page.locator('#kb-macro-edit [data-act="record"]').click();
     await page.waitForFunction(() => Keyboard.editor.recording && Keyboard.editor.captureCount === 4);

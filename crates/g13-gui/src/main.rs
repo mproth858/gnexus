@@ -145,6 +145,12 @@ fn apply_keyboard(state: State<AppState>, settings: g13_daemon::keyboard::Keyboa
         .keyboard(g13_daemon::keyboard::KeyboardCommand::Apply(Box::new(settings)))
 }
 
+#[tauri::command]
+fn pause_regular_keys(state: State<AppState>) -> Result<(), String> {
+    state.runtime.lock().unwrap().as_ref().ok_or("Engine stopped")?
+        .keyboard(g13_daemon::keyboard::KeyboardCommand::PauseRegular)
+}
+
 /// Write these settings into the mouse's active onboard profile. The result
 /// arrives as a `mouse` event (message / error).
 #[tauri::command]
@@ -1435,6 +1441,7 @@ fn main() {
             gamepad_status,
             get_mouse,
             apply_keyboard,
+            pause_regular_keys,
             get_headset,
             set_headset_sidetone,
             set_headset_sleep,

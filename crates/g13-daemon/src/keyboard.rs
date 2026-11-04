@@ -40,12 +40,16 @@ pub struct KeyboardSettings {
     /// None leaves the current brightness alone; otherwise percent 0..100.
     pub brightness: Option<u8>,
     pub profile: FileDto,
+    #[serde(default)]
+    pub regular_enabled: bool,
+    #[serde(default)]
+    pub regular_keys: std::collections::BTreeMap<String, crate::profiles::format::ActionDto>,
 }
 
 impl Default for KeyboardSettings {
     fn default() -> Self {
         Self { enabled: false, color: None, brightness: None,
-            profile: FileDto { name: "G915".into(), ..FileDto::default() } }
+            profile: FileDto { name: "G915".into(), ..FileDto::default() }, regular_enabled: false, regular_keys: Default::default() }
     }
 }
 
@@ -60,6 +64,7 @@ impl KeyboardSettings {
         }
         if self.profile.stick.is_some() { return Err("G915 has no stick".into()); }
         profiles::from_dto(self.profile.clone()).map_err(|e| e.to_string())?;
+        crate::remap::compile(&self.regular_keys, &self.profile.macros)?;
         Ok(())
     }
 }
@@ -80,9 +85,11 @@ pub struct KeyboardStatus {
     pub message: Option<String>,
     pub error: bool,
     pub revision: u64,
+    pub regular_supported: bool,
+    pub regular_active: bool,
 }
 
-pub enum KeyboardCommand { Apply(Box<KeyboardSettings>) }
+pub enum KeyboardCommand { Apply(Box<KeyboardSettings>), PauseRegular }
 
 struct Keyboard {
     link: Link,
@@ -117,7 +124,7 @@ fn find(api: &HidApi) -> Option<Keyboard> {
                         else if index == DIRECT { "USB" } else { "LIGHTSPEED" };
                     return Some(Keyboard { link, status: KeyboardStatus { connected: true, name, transport: transport.into(),
                         product_id: info.product_id(), gkeys_supported: gkeys.is_some(), lighting_supported: rgb.is_some(),
-                        brightness_supported: brightness.is_some(), bank: "M1".into(), ..Default::default() },
+                        brightness_supported: brightness.is_some(), regular_supported: cfg!(windows), bank: "M1".into(), ..Default::default() },
                         gkeys, mkeys, rgb, brightness, battery, onboard, original_mode: None, claimed: false, diverted: false });
                 }
             }
@@ -144,7 +151,7 @@ impl Keyboard {
 
     fn apply(&mut self, settings: &KeyboardSettings) -> Result<(), String> {
         settings.validate()?;
-        if (settings.enabled || settings.color.is_some() || settings.brightness.is_some())
+        if (settings.enabled || settings.regular_enabled || settings.color.is_some() || settings.brightness.is_some())
             && crate::mouse::worker::GhubWatch::new().running() {
             return Err("Close G HUB before applying G915 settings".into());
         }
@@ -213,6 +220,7 @@ pub fn spawn(commands: Receiver<KeyboardCommand>, publish: impl Fn(KeyboardStatu
         let mut settings = settings_path.as_ref().and_then(|p| std::fs::read(p).ok())
             .and_then(|b| serde_json::from_slice::<KeyboardSettings>(&b).ok())
             .filter(|s| s.validate().is_ok()).unwrap_or_default();
+        let mut remapper = crate::remap::Service::new(injector.clone());
         let mut api = match HidApi::new() { Ok(a) => a, Err(e) => {
             publish(KeyboardStatus { error: true, message: Some(e.to_string()), ..Default::default() }); return;
         }};
@@ -222,18 +230,31 @@ pub fn spawn(commands: Receiver<KeyboardCommand>, publish: impl Fn(KeyboardStatu
                 let (tx, rx) = mpsc::channel();
                 let mut engine = Engine::new(injector.clone(), tx, profiles::from_dto(settings.profile.clone()).unwrap().profile);
                 engine.handle(DeviceEvent::Connected);
-                if let Err(error) = keyboard.apply(&settings) {
+                if let Err(error) = keyboard.apply(&settings).and_then(|()| apply_regular(&mut remapper, &settings)) {
                     keyboard.release();
+                    let _ = remapper.configure(Default::default());
                     keyboard.status.error = true;
                     keyboard.status.message = Some(error);
                 }
                 keyboard.status.settings = settings.clone();
+                keyboard.status.regular_active = remapper.is_active();
                 publish(keyboard.status.clone());
                 let mut health = Instant::now();
                 while !shutdown.load(Ordering::Relaxed) {
-                    while let Ok(KeyboardCommand::Apply(next)) = commands.try_recv() {
+                    while let Ok(command) = commands.try_recv() {
+                        let next = match command {
+                            KeyboardCommand::Apply(next) => next,
+                            KeyboardCommand::PauseRegular => {
+                                let result = remapper.configure(Default::default());
+                                keyboard.status.regular_active = remapper.is_active();
+                                keyboard.status.error = result.is_err();
+                                keyboard.status.message = Some(result.err().unwrap_or_else(|| "Regular-key assignments paused. Apply to resume.".into()));
+                                publish(keyboard.status.clone());
+                                continue;
+                            }
+                        };
                         engine.handle(DeviceEvent::Disconnected);
-                        let result = keyboard.apply(&next).and_then(|()| {
+                        let result = keyboard.apply(&next).and_then(|()| apply_regular(&mut remapper, &next)).and_then(|()| {
                             let path = settings_path.as_ref().ok_or("No configuration directory")?;
                             if let Some(parent) = path.parent() { std::fs::create_dir_all(parent).map_err(|e| e.to_string())?; }
                             let temp = path.with_extension("json.tmp");
@@ -242,6 +263,7 @@ pub fn spawn(commands: Receiver<KeyboardCommand>, publish: impl Fn(KeyboardStatu
                         });
                         if let Err(e) = result {
                             keyboard.release();
+                            let _ = remapper.configure(Default::default());
                             keyboard.status.error = true;
                             keyboard.status.message = Some(e);
                         } else {
@@ -253,6 +275,7 @@ pub fn spawn(commands: Receiver<KeyboardCommand>, publish: impl Fn(KeyboardStatu
                             keyboard.status.message = Some("G915 settings saved".into());
                         }
                         keyboard.status.held = 0;
+                        keyboard.status.regular_active = remapper.is_active();
                         keyboard.status.revision += 1;
                         publish(keyboard.status.clone());
                     }
@@ -279,9 +302,10 @@ pub fn spawn(commands: Receiver<KeyboardCommand>, publish: impl Fn(KeyboardStatu
                     // Device output is G13-specific; never send it to this keyboard.
                     while rx.try_recv().is_ok() {}
                     if health.elapsed() >= Duration::from_secs(2) {
-                        if (keyboard.diverted || keyboard.claimed) && crate::mouse::worker::GhubWatch::new().running() {
+                        if (keyboard.diverted || keyboard.claimed || remapper.is_active()) && crate::mouse::worker::GhubWatch::new().running() {
                             engine.handle(DeviceEvent::Disconnected);
                             keyboard.release();
+                            let _ = remapper.configure(Default::default());
                             keyboard.status.held = 0;
                             keyboard.status.error = true;
                             keyboard.status.message = Some("G HUB started. Close it, then apply your G915 settings again.".into());
@@ -291,11 +315,13 @@ pub fn spawn(commands: Receiver<KeyboardCommand>, publish: impl Fn(KeyboardStatu
                             keyboard.status.voltage_mv = keyboard.link.call(i, 0, &[]).ok()
                                 .map(|d| u16::from_be_bytes([d[0], d[1]]));
                         }
+                        keyboard.status.regular_active = remapper.is_active();
                         publish(keyboard.status.clone());
                         health = Instant::now();
                     }
                 }
                 engine.shutdown();
+                let _ = remapper.configure(Default::default());
                 keyboard.release();
             }
             publish(KeyboardStatus { settings: settings.clone(), ..Default::default() });
@@ -307,6 +333,13 @@ pub fn spawn(commands: Receiver<KeyboardCommand>, publish: impl Fn(KeyboardStatu
             }
         }
     })
+}
+
+fn apply_regular(remapper: &mut crate::remap::Service, settings: &KeyboardSettings) -> Result<(), String> {
+    let assignments = if settings.regular_enabled {
+        crate::remap::compile(&settings.regular_keys, &settings.profile.macros)?
+    } else { Default::default() };
+    remapper.configure(assignments)
 }
 
 #[cfg(test)]
